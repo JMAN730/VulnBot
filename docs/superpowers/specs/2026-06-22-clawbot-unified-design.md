@@ -243,10 +243,17 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\cla
   Python 3.14.4 + pydantic 2.13.4. Tracked as an upstream/compat issue, out of
   scope for the rename foundation.
 
-**Done:** Foundation (steps 0–1) · CVE (Plan 2) · OSINT (Plan 3) · Topology (Plan 4).
-**Deferred plans (each authored at port time):** Rebranding sweep · Findings ·
-Compliance/MITRE · Remediation · PDF export · Integration & release
-(spec §12 steps 5–9).
+**Done:** Foundation (0–1) · CVE (Plan 2) · OSINT (Plan 3) · Topology (Plan 4) ·
+Compliance (Plan 6, frameworks only).
+**Deferred plans (each authored at port time):** Rebranding sweep · Findings
+(risk/diff) · MITRE ATT&CK (HackBot `attack.py`) · Remediation · PDF export ·
+Integration & release.
+
+Compliance notes: `clawbot/intel/compliance.py` — keyword-rule mapping to PCI
+DSS v4.0 / NIST 800-53 / OWASP Top 10 / ISO 27001 with gap analysis; read-only
+`compliance_map` tool maps passed findings or the session's findings. MITRE
+ATT&CK (separate HackBot `attack.py`) deferred. Intel tools live: `cve_lookup`,
+`osint_recon`, `topology_build`, `compliance_map`. Suite: **569 passed, 1 skipped**.
 
 Topology notes: `clawbot/intel/topology.py` — pure/offline parser (nmap text+XML,
 masscan) → host/port/service/subnet graph; markdown/ascii/json render; read-only
