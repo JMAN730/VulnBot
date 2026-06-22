@@ -997,7 +997,7 @@ class TestWebApp:
 
     def test_static_fallback_is_toc_shell(self):
         root = Path(__file__).resolve().parents[1]
-        source = (root / "vulnclaw" / "web" / "static" / "index.html").read_text(
+        source = (root / "clawbot" / "web" / "static" / "index.html").read_text(
             encoding="utf-8"
         )
 
