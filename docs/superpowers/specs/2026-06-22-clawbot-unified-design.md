@@ -243,7 +243,14 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\cla
   Python 3.14.4 + pydantic 2.13.4. Tracked as an upstream/compat issue, out of
   scope for the rename foundation.
 
-**Done:** Foundation (steps 0–1) · CVE (Plan 2).
-**Deferred plans (each authored at port time):** Rebranding sweep · OSINT ·
-Topology · Findings · Compliance/MITRE · Remediation · PDF export · Integration
-& release (spec §12 steps 3–9).
+**Done:** Foundation (steps 0–1) · CVE (Plan 2) · OSINT (Plan 3).
+**Deferred plans (each authored at port time):** Rebranding sweep · Topology ·
+Findings · Compliance/MITRE · Remediation · PDF export · Integration & release
+(spec §12 steps 4–9).
+
+OSINT notes: `clawbot/intel/osint.py` — async httpx for crt.sh CT, RDAP WHOIS,
+tech fingerprint; blocking DNS/socket-WHOIS/TLS via `asyncio.to_thread`;
+`dnspython` optional (`clawbot[osint]`) with socket fallback. HackBot's
+search-engine email scraping was dropped (unreliable/ToS-fragile) for
+deterministic MX-based candidates. `osint_recon` classified as active `recon`.
+Suite: **546 passed, 1 skipped** (same pre-existing dedup failure).
