@@ -229,6 +229,36 @@ class TestCLI:
         assert result.exit_code == 0
         assert "Report generated" in result.output or result.output
 
+    def test_report_target_mode_pdf(self, runner, monkeypatch, tmp_path):
+        import clawbot.config.settings as settings_mod
+        import clawbot.target_state.store as store_mod
+        from clawbot.agent.context import SessionState, VulnerabilityFinding
+        from clawbot.cli.main import app
+        from clawbot.report import pdf_exporter
+
+        sessions = tmp_path / "sessions"
+        sessions.mkdir()
+        monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path / "targets")
+        monkeypatch.setattr(settings_mod, "SESSIONS_DIR", sessions)
+
+        state = SessionState(target="https://example.com")
+        finding = VulnerabilityFinding(title="SQLi", severity="High", vuln_type="SQLi")
+        finding.verified = True
+        finding.verification_status = "verified"
+        state.add_finding(finding)
+        store_mod.save_target_state("https://example.com", state, command="scan")
+
+        result = runner.invoke(app, ["report", "https://example.com", "--target", "--pdf"])
+
+        if pdf_exporter._HAVE_REPORTLAB:
+            assert result.exit_code == 0, result.output
+            assert "PDF exported" in result.output
+            pdfs = list(sessions.glob("*.pdf"))
+            assert pdfs and pdfs[0].read_bytes()[:5] == b"%PDF-"
+        else:
+            assert result.exit_code == 1
+            assert "clawbot[pdf]" in result.output
+
     def test_repl_report_command_uses_current_session_or_target_state(self, runner, monkeypatch):
         import clawbot.cli.main as cli_main
         import clawbot.mcp.lifecycle as lifecycle_mod
