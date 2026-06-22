@@ -24,6 +24,14 @@ Natural language input → automated "Recon → Vulnerability Discovery → Expl
 
 </div>
 
+> **ℹ️ About this build — ClawBot.** This package (`clawbot`) is a combined
+> product that merges [VulnClaw](https://github.com/Unclecheng-li/VulnClaw)
+> (base: agent core, MCP toolchain, skills, CLI/TUI/web) with intelligence
+> modules ported from [HackBot](https://github.com/yashab-cyber/hackbot)
+> (CVE, OSINT, topology, compliance/MITRE, findings scoring, remediation, PDF).
+> Both upstreams are MIT-licensed; see [`NOTICE`](NOTICE). User-facing branding
+> is being unified incrementally.
+
 ---
 
 ## What It Does
