@@ -1,0 +1,49 @@
+name: Release Preflight
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-preflight:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install backend deps
+        run: python -m pip install --upgrade pip
+
+      - name: Install backend package
+        run: pip install -e ".[dev,web]"
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run preflight
+        run: python scripts/release_preflight.py
+
+      - name: Build package
+        run: python -m build
+
+      - name: Verify dist artifacts
+        run: |
+          test -f dist/*.whl
+          test -f dist/*.tar.gz
