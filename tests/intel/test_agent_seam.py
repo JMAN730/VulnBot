@@ -10,9 +10,15 @@ def test_builder_includes_intel_schemas():
 
 
 @pytest.mark.asyncio
-async def test_execute_routes_intel_tool():
+async def test_execute_routes_intel_tool(monkeypatch):
+    from clawbot.intel import tools as intel_tools
+
+    async def fake(agent, args):
+        return "OK:" + args["query"]
+
+    monkeypatch.setitem(intel_tools._HANDLERS, "cve_lookup", fake)
     out = await bt.execute_mcp_tool(agent=_FakeAgent(), tool_name="cve_lookup", args={"query": "x"})
-    assert isinstance(out, str) and out
+    assert out == "OK:x"
 
 
 class _FakeAgent:

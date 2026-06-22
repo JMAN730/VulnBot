@@ -1,5 +1,6 @@
 import pytest
 
+from clawbot.intel import tools as intel_tools
 from clawbot.intel.tools import INTEL_TOOL_NAMES, dispatch_intel_tool, intel_tool_schemas
 
 
@@ -20,7 +21,10 @@ async def test_dispatch_unknown_tool_returns_structured_error():
 
 
 @pytest.mark.asyncio
-async def test_dispatch_cve_lookup_stub_is_structured():
-    out = await dispatch_intel_tool(agent=None, tool_name="cve_lookup", args={"query": "openssl"})
-    # Stub until the CVE plan lands; must be a structured, non-raising result.
-    assert isinstance(out, str) and out
+async def test_dispatch_routes_to_registered_handler(monkeypatch):
+    async def fake(agent, args):
+        return "ROUTED:" + args["query"]
+
+    monkeypatch.setitem(intel_tools._HANDLERS, "cve_lookup", fake)
+    out = await dispatch_intel_tool(agent=None, tool_name="cve_lookup", args={"query": "x"})
+    assert out == "ROUTED:x"

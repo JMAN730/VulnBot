@@ -55,8 +55,18 @@ async def _stub(tool_name: str, args: dict[str, Any]) -> str:
     return f"[intel_pending] {tool_name} is not yet implemented in this build."
 
 
-# Handlers are filled in by each module's port plan. Stubs keep dispatch testable.
-_HANDLERS: dict[str, Callable[[Any, dict[str, Any]], Awaitable[str]]] = {}
+def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str]]]:
+    """Map tool name -> async handler. Each ported module registers here."""
+    from clawbot.intel.cve import cve_lookup_tool
+
+    return {
+        "cve_lookup": cve_lookup_tool,
+    }
+
+
+# Handlers are filled in by each module's port. Tools in the schema list without
+# a handler fall back to a structured stub so dispatch stays testable.
+_HANDLERS: dict[str, Callable[[Any, dict[str, Any]], Awaitable[str]]] = _build_handlers()
 
 
 async def dispatch_intel_tool(agent: Any, tool_name: str, args: dict[str, Any]) -> str:

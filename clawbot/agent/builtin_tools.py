@@ -283,7 +283,7 @@ def build_openai_tools(mcp_manager: Any) -> list[dict[str, Any]]:
                     "properties": {
                         "skill_name": {
                             "type": "string",
-                            "description": "Skill name, such as client-reverse, web-security-advanced, ai-mcp-security, intranet-pentest-advanced, pentest-tools, rapid-checklist, crypto-toolkit, ctf-web, ctf-crypto, ctf-misc, osint-recon, secknowledge-skill",
+                            "description": "Skill name, such as client-reverse, web-security-advanced, ai-mcp-security, intranet-pentest-advanced, pentest-tools, rapid-checklist, crypto-toolkit, ctf-web, ctf-crypto, ctf-misc, osint-recon, secknowledge-skill, cve-triage",
                         },
                         "reference_name": {
                             "type": "string",
