@@ -1,4 +1,4 @@
-"""TUI helpers for the VulnClaw CLI."""
+"""TUI helpers for the ClawBot CLI."""
 
 
 from __future__ import annotations
@@ -255,14 +255,14 @@ def build_state_from_options(
 
 
 def build_dashboard(config, state: TuiState) -> Group:
-    """Build the first-screen VulnClaw TUI dashboard."""
+    """Build the first-screen ClawBot TUI dashboard."""
     mode = MODES[state.mode]
     provider = getattr(config.llm, "provider", "unknown")
     model = getattr(config.llm, "model", "unknown")
     api_ready = bool(getattr(config.llm, "api_key", ""))
     overview = build_target_overview(state.target)
 
-    title = Text(" VulnClaw TUI", style=f"bold {C_ACCENT}")
+    title = Text(" ClawBot TUI", style=f"bold {C_ACCENT}")
     subtitle = Text(f"  {_('tui.desc')}", style=f"{C_MUTED}")
     header = Panel(
         Group(title, subtitle),
@@ -1237,7 +1237,7 @@ def _build_command_preview_args(draft: TuiTaskDraft) -> list[str]:
 
 def build_command_preview_args(draft: TuiTaskDraft, nl_text: str | None = None) -> list[str]:
     """Build a copyable CLI command from a TUI task draft."""
-    args = ["vulnclaw", draft.command, draft.target]
+    args = ["clawbot", draft.command, draft.target]
     if nl_text:
         args.extend(["--prompt", nl_text])
     if not draft.resume:

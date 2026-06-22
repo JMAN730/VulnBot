@@ -1,4 +1,4 @@
-"""VulnClaw Knowledge Base Module Tests — store.py + retriever.py + updater.py"""
+"""ClawBot Knowledge Base Module Tests — store.py + retriever.py + updater.py"""
 
 
 # ── store.py ─────────────────────────────────────────────────────────

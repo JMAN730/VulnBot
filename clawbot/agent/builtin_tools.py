@@ -28,7 +28,7 @@ BLOCKED_PATTERNS: list[str] = [
     r"shutil\.\s*rmtree\s*\(",
     r"__import__\s*\(\s*['\"]os['\"]",
     r"open\s*\(\s*['\"].*clawbot.*config",
-    r"open\s*\(\s*['\"].*\.vulnclaw",
+    r"open\s*\(\s*['\"].*\.clawbot",
 ]
 
 RESERVED_IP_RANGES: list[tuple[str, str, str]] = [

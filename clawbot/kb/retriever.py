@@ -1,10 +1,10 @@
-"""VulnClaw Knowledge Retriever - retrieve relevant knowledge for the agent.
+"""ClawBot Knowledge Retriever - retrieve relevant knowledge for the agent.
 
 Retrieval degrades gracefully across three backends:
 
 - ``chromadb_active``   : semantic vector search (requires the optional
                           ``chromadb`` dependency, installed via
-                          ``pip install vulnclaw[kb]``).
+                          ``pip install clawbot[kb]``).
 - ``keyword_fallback``  : pure-Python keyword + TF-IDF scoring over the KB
                           JSON corpus. No external dependency.
 - ``disabled``          : no KB data is available at all.

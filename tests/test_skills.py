@@ -1,4 +1,4 @@
-"""VulnClaw Skill Module Tests — loader.py + dispatcher.py"""
+"""ClawBot Skill Module Tests — loader.py + dispatcher.py"""
 
 
 # ── loader.py ────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ class TestSkillLoader:
         )
 
     def test_load_secknowledge_reference(self):
-        """SecKnowledge references should be loadable through VulnClaw."""
+        """SecKnowledge references should be loadable through ClawBot."""
         from clawbot.skills.loader import load_skill_reference
 
         content = load_skill_reference("secknowledge-skill", "web-sqli.md")

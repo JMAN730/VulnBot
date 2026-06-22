@@ -1,4 +1,4 @@
-"""FastAPI app entry for the VulnClaw Web UI backend."""
+"""FastAPI app entry for the ClawBot Web UI backend."""
 
 from __future__ import annotations
 
@@ -77,14 +77,14 @@ def create_app():
     """Create the Web UI backend app."""
     if not FASTAPI_AVAILABLE:
         raise RuntimeError(
-            "FastAPI is not installed. Install the web extra first: pip install vulnclaw[web]"
+            "FastAPI is not installed. Install the web extra first: pip install clawbot[web]"
         )
 
-    app = FastAPI(title="VulnClaw Web UI", version="0.3.1")
+    app = FastAPI(title="ClawBot Web UI", version="0.3.1")
 
     @app.get("/api/health")
     async def health():
-        return {"status": "ok", "service": "vulnclaw-web"}
+        return {"status": "ok", "service": "clawbot-web"}
 
     @app.get("/api/config")
     async def config_view():

@@ -114,7 +114,7 @@ export function ReportsPage({ selectedTarget, focus }: ReportsPageProps) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = selectedReport.name || `vulnclaw-report.${previewKind === "html" ? "html" : "md"}`;
+    anchor.download = selectedReport.name || `clawbot-report.${previewKind === "html" ? "html" : "md"}`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

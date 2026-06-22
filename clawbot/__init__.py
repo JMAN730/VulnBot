@@ -1,4 +1,4 @@
-"""VulnClaw - AI-powered penetration testing CLI tool."""
+"""ClawBot - AI-powered penetration testing CLI tool."""
 
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -13,8 +13,8 @@ try:
     __version__ = version_line.split('"')[1]
 except Exception:
     try:
-        __version__ = version("vulnclaw")
+        __version__ = version("clawbot")
     except PackageNotFoundError:
         __version__ = "0.3.1"
 
-__author__ = "VulnClaw Team"
+__author__ = "ClawBot Team"

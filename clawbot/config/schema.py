@@ -1,4 +1,4 @@
-﻿"""VulnClaw configuration schema - Pydantic models for type-safe config."""
+﻿"""ClawBot configuration schema - Pydantic models for type-safe config."""
 
 from __future__ import annotations
 
@@ -194,7 +194,7 @@ class SafetyConfig(BaseModel):
 class SessionConfig(BaseModel):
     """Session / output configuration."""
 
-    output_dir: Path = Field(default=Path("./vulnclaw-output"), description="Output directory")
+    output_dir: Path = Field(default=Path("./clawbot-output"), description="Output directory")
     auto_save: bool = Field(default=True, description="Auto-save session state")
     report_format: str = Field(
         default="markdown", description="Default report format: markdown, html"
@@ -223,8 +223,8 @@ class SessionConfig(BaseModel):
     language: str = Field(default="en", description="UI language: en")
 
 
-class VulnClawConfig(BaseModel):
-    """Top-level VulnClaw configuration."""
+class ClawBotConfig(BaseModel):
+    """Top-level ClawBot configuration."""
 
     llm: LLMConfig = Field(default_factory=LLMConfig)
     mcp: MCPServersConfig = Field(default_factory=MCPServersConfig)
@@ -232,7 +232,7 @@ class VulnClawConfig(BaseModel):
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
 
     model_config = ConfigDict(
-        env_prefix="VULNCLAW_",
+        env_prefix="CLAWBOT_",
         env_nested_delimiter="__",
     )
 

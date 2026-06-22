@@ -1,4 +1,4 @@
-"""VulnClaw Finding Similarity Tests - semantic deduplication module."""
+"""ClawBot Finding Similarity Tests - semantic deduplication module."""
 
 from __future__ import annotations
 

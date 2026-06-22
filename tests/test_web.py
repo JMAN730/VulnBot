@@ -51,10 +51,10 @@ class TestWebServices:
 
     def test_web_config_service_updates_subset(self, monkeypatch, tmp_path):
         import clawbot.web.services.config_service as config_service
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.web.schemas import ConfigUpdateRequest
 
-        saved = VulnClawConfig()
+        saved = ClawBotConfig()
 
         monkeypatch.setattr(config_service, "load_config", lambda: saved)
         monkeypatch.setattr(config_service, "save_config", lambda cfg: None)
@@ -405,11 +405,11 @@ class TestWebServices:
     async def test_web_task_service_restore_summary_flow(self, monkeypatch):
         import clawbot.web.services.task_service as task_service
         from clawbot.agent.context import SessionState
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.web.schemas import TaskCreateRequest
         from clawbot.web.task_manager import WebTaskManager
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         monkeypatch.setattr(task_service, "load_config", lambda: config)
 
         class DummyLifecycle:
@@ -535,11 +535,11 @@ class TestWebServices:
     @pytest.mark.asyncio
     async def test_web_task_service_blocks_exploit_when_only_port_scope_is_set(self, monkeypatch):
         import clawbot.web.services.task_service as task_service
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.web.schemas import TaskCreateRequest, TaskOptions
         from clawbot.web.task_manager import WebTaskManager
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         monkeypatch.setattr(task_service, "load_config", lambda: config)
 
         manager = WebTaskManager()
@@ -561,11 +561,11 @@ class TestWebServices:
     @pytest.mark.asyncio
     async def test_web_task_service_blocks_run_when_allowed_actions_conflict(self, monkeypatch):
         import clawbot.web.services.task_service as task_service
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.web.schemas import TaskCreateRequest
         from clawbot.web.task_manager import WebTaskManager
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         monkeypatch.setattr(task_service, "load_config", lambda: config)
         monkeypatch.setattr(
             task_service,
@@ -587,10 +587,10 @@ class TestWebServices:
 
     def test_web_config_service_updates_safety_fields(self, monkeypatch):
         import clawbot.web.services.config_service as config_service
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.web.schemas import ConfigUpdateRequest
 
-        saved = VulnClawConfig()
+        saved = ClawBotConfig()
 
         monkeypatch.setattr(config_service, "load_config", lambda: saved)
         monkeypatch.setattr(config_service, "save_config", lambda cfg: None)
@@ -846,7 +846,7 @@ class TestWebApp:
         assert "shell.backend_unavailable" in shell_source
         assert "shell.retry" in shell_source
         api_source = (root / "src" / "api" / "web.ts").read_text(encoding="utf-8")
-        assert "Unable to reach the VulnClaw backend API" in api_source
+        assert "Unable to reach the ClawBot backend API" in api_source
         assert "Request failed" in api_source
         assert "getReportDownloadUrl" in api_source
         assert "The backend API returned non-JSON content" in api_source

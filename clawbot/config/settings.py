@@ -1,4 +1,4 @@
-"""VulnClaw configuration management - load, save, and access settings."""
+"""ClawBot configuration management - load, save, and access settings."""
 
 from __future__ import annotations
 
@@ -13,16 +13,16 @@ from pydantic import ValidationError
 from .schema import (
     BUILTIN_MCP_SERVERS,
     PROVIDER_PRESETS,
+    ClawBotConfig,
     LLMProvider,
     MCPServerConfig,
     MCPServersConfig,
     MCPTransportConfig,
-    VulnClawConfig,
 )
 
 # Paths
 
-CONFIG_DIR = Path(os.environ.get("VULNCLAW_CONFIG_DIR", str(Path.home() / ".vulnclaw")))
+CONFIG_DIR = Path(os.environ.get("CLAWBOT_CONFIG_DIR", str(Path.home() / ".clawbot")))
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 SESSIONS_DIR = CONFIG_DIR / "sessions"
 TARGETS_DIR = CONFIG_DIR / "targets"
@@ -33,7 +33,7 @@ PYTHON_EXECUTE_AUDIT_FILE = CONFIG_DIR / "python_execute_audit.jsonl"
 
 
 def ensure_dirs() -> None:
-    """Create VulnClaw config directories if they don't exist."""
+    """Create ClawBot config directories if they don't exist."""
     for d in [CONFIG_DIR, SESSIONS_DIR, TARGETS_DIR, KB_DIR, SKILLS_DIR]:
         d.mkdir(parents=True, exist_ok=True)
 
@@ -41,7 +41,7 @@ def ensure_dirs() -> None:
 # Load / Save
 
 
-def load_config() -> VulnClawConfig:
+def load_config() -> ClawBotConfig:
     """Load configuration from file + env vars.
 
     Priority: env vars > config file > built-in defaults.
@@ -53,7 +53,7 @@ def load_config() -> VulnClawConfig:
     for name, cfg in BUILTIN_MCP_SERVERS.items():
         servers[name] = _parse_mcp_server(name, cfg)
 
-    config = VulnClawConfig(mcp=MCPServersConfig(servers=servers))
+    config = ClawBotConfig(mcp=MCPServersConfig(servers=servers))
 
     # Overlay from config file
     if CONFIG_FILE.exists():
@@ -71,7 +71,7 @@ def load_config() -> VulnClawConfig:
     return config
 
 
-def save_config(config: VulnClawConfig) -> None:
+def save_config(config: ClawBotConfig) -> None:
     """Save configuration to YAML file."""
     ensure_dirs()
     raw = config.model_dump(mode="json")
@@ -132,7 +132,7 @@ def _parse_mcp_server(name: str, raw: dict[str, Any]) -> MCPServerConfig:
     )
 
 
-def _merge_config(base: VulnClawConfig, raw: dict[str, Any]) -> VulnClawConfig:
+def _merge_config(base: ClawBotConfig, raw: dict[str, Any]) -> ClawBotConfig:
     """Merge raw dict into existing config, preserving unset defaults."""
     data = base.model_dump(mode="json")
 
@@ -140,7 +140,7 @@ def _merge_config(base: VulnClawConfig, raw: dict[str, Any]) -> VulnClawConfig:
     _deep_merge(data, raw)
 
     try:
-        return VulnClawConfig(**data)
+        return ClawBotConfig(**data)
     except ValidationError:
         # If merged data is invalid, return base
         return base
@@ -155,10 +155,10 @@ def _deep_merge(base: dict, override: dict) -> None:
             base[key] = val
 
 
-def _overlay_env(config: VulnClawConfig) -> VulnClawConfig:
+def _overlay_env(config: ClawBotConfig) -> ClawBotConfig:
     """Overlay environment variables onto config.
 
-    Supported env vars (prefix VULNCLAW_):
+    Supported env vars (prefix CLAWBOT_):
         LLM:        API_KEY, BASE_URL, MODEL, PROVIDER, MAX_TOKENS, MAX_CONTEXT_TOKENS, TEMPERATURE
         Session:    OUTPUT_DIR, AUTO_SAVE, REPORT_FORMAT, MAX_ROUNDS, SHOW_THINKING
         Safety:     PYTHON_EXECUTE_ENABLED, PYTHON_EXECUTE_RESTRICTED, PYTHON_EXECUTE_MODE,
@@ -166,53 +166,53 @@ def _overlay_env(config: VulnClawConfig) -> VulnClawConfig:
                     PYTHON_EXECUTE_MAX_OUTPUT_CHARS, PYTHON_EXECUTE_AUDIT_ENABLED
     """
     # LLM
-    if v := os.environ.get("VULNCLAW_LLM_API_KEY"):
+    if v := os.environ.get("CLAWBOT_LLM_API_KEY"):
         config.llm.api_key = v
-    if v := os.environ.get("VULNCLAW_LLM_BASE_URL"):
+    if v := os.environ.get("CLAWBOT_LLM_BASE_URL"):
         config.llm.base_url = v
-    if v := os.environ.get("VULNCLAW_LLM_MODEL"):
+    if v := os.environ.get("CLAWBOT_LLM_MODEL"):
         config.llm.model = v
-    if v := os.environ.get("VULNCLAW_LLM_PROVIDER"):
+    if v := os.environ.get("CLAWBOT_LLM_PROVIDER"):
         config.llm.provider = v
-    if v := os.environ.get("VULNCLAW_LLM_MAX_TOKENS"):
+    if v := os.environ.get("CLAWBOT_LLM_MAX_TOKENS"):
         with suppress(ValueError):
             config.llm.max_tokens = int(v)
-    if v := os.environ.get("VULNCLAW_LLM_MAX_CONTEXT_TOKENS"):
+    if v := os.environ.get("CLAWBOT_LLM_MAX_CONTEXT_TOKENS"):
         with suppress(ValueError):
             config.llm.max_context_tokens = int(v)
-    if v := os.environ.get("VULNCLAW_LLM_TEMPERATURE"):
+    if v := os.environ.get("CLAWBOT_LLM_TEMPERATURE"):
         with suppress(ValueError):
             config.llm.temperature = float(v)
 
     # Session
-    if v := os.environ.get("VULNCLAW_SESSION_OUTPUT_DIR"):
+    if v := os.environ.get("CLAWBOT_SESSION_OUTPUT_DIR"):
         config.session.output_dir = Path(v)
-    if v := os.environ.get("VULNCLAW_SESSION_AUTO_SAVE"):
+    if v := os.environ.get("CLAWBOT_SESSION_AUTO_SAVE"):
         config.session.auto_save = v.lower() in ("1", "true", "yes", "on")
-    if v := os.environ.get("VULNCLAW_SESSION_REPORT_FORMAT"):
+    if v := os.environ.get("CLAWBOT_SESSION_REPORT_FORMAT"):
         config.session.report_format = v
-    if v := os.environ.get("VULNCLAW_SESSION_MAX_ROUNDS"):
+    if v := os.environ.get("CLAWBOT_SESSION_MAX_ROUNDS"):
         with suppress(ValueError):
             config.session.max_rounds = int(v)
-    if v := os.environ.get("VULNCLAW_SESSION_SHOW_THINKING"):
+    if v := os.environ.get("CLAWBOT_SESSION_SHOW_THINKING"):
         config.session.show_thinking = v.lower() in ("1", "true", "yes", "on")
 
     # Safety
-    if v := os.environ.get("VULNCLAW_SAFETY_PYTHON_EXECUTE_ENABLED"):
+    if v := os.environ.get("CLAWBOT_SAFETY_PYTHON_EXECUTE_ENABLED"):
         config.safety.enable_python_execute = v.lower() in ("1", "true", "yes", "on")
-    if v := os.environ.get("VULNCLAW_SAFETY_PYTHON_EXECUTE_RESTRICTED"):
+    if v := os.environ.get("CLAWBOT_SAFETY_PYTHON_EXECUTE_RESTRICTED"):
         config.safety.python_execute_restricted = v.lower() in ("1", "true", "yes", "on")
-    if v := os.environ.get("VULNCLAW_SAFETY_PYTHON_EXECUTE_MODE"):
+    if v := os.environ.get("CLAWBOT_SAFETY_PYTHON_EXECUTE_MODE"):
         config.safety.python_execute_mode = v
-    if v := os.environ.get("VULNCLAW_SAFETY_PYTHON_EXECUTE_MAX_LINES"):
+    if v := os.environ.get("CLAWBOT_SAFETY_PYTHON_EXECUTE_MAX_LINES"):
         with suppress(ValueError):
             config.safety.python_execute_max_lines = int(v)
-    if v := os.environ.get("VULNCLAW_SAFETY_PYTHON_EXECUTE_SHOW_WARNING"):
+    if v := os.environ.get("CLAWBOT_SAFETY_PYTHON_EXECUTE_SHOW_WARNING"):
         config.safety.python_execute_show_warning = v.lower() in ("1", "true", "yes", "on")
-    if v := os.environ.get("VULNCLAW_SAFETY_PYTHON_EXECUTE_MAX_OUTPUT_CHARS"):
+    if v := os.environ.get("CLAWBOT_SAFETY_PYTHON_EXECUTE_MAX_OUTPUT_CHARS"):
         with suppress(ValueError):
             config.safety.python_execute_max_output_chars = int(v)
-    if v := os.environ.get("VULNCLAW_SAFETY_PYTHON_EXECUTE_AUDIT_ENABLED"):
+    if v := os.environ.get("CLAWBOT_SAFETY_PYTHON_EXECUTE_AUDIT_ENABLED"):
         config.safety.python_execute_audit_enabled = v.lower() in ("1", "true", "yes", "on")
 
     return config
@@ -235,7 +235,7 @@ def _strip_defaults(raw: dict) -> None:
 # Provider Management
 
 
-def apply_provider_preset(config: VulnClawConfig, provider_name: str) -> VulnClawConfig:
+def apply_provider_preset(config: ClawBotConfig, provider_name: str) -> ClawBotConfig:
     """Apply a provider preset, auto-filling base_url and model.
 
     Only fills fields that haven't been explicitly changed from the previous

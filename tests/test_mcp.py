@@ -1,4 +1,4 @@
-"""VulnClaw MCP Module Tests - registry.py + router.py + lifecycle.py"""
+"""ClawBot MCP Module Tests - registry.py + router.py + lifecycle.py"""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -199,27 +199,27 @@ class TestMCPLifecycleManager:
     """Test MCPLifecycleManager."""
 
     def test_init(self):
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         assert manager.registry is not None
 
     def test_start_enabled_servers(self):
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         manager = MCPLifecycleManager(config)
         started = manager.start_enabled_servers()
         # At least fetch and memory should be registered
         assert started >= 0  # May or may not actually start depending on env
 
     def test_get_tool_schemas(self):
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         manager = MCPLifecycleManager(config)
         manager.start_enabled_servers()
         schemas = manager.get_tool_schemas()
@@ -229,10 +229,10 @@ class TestMCPLifecycleManager:
         """Calling an unknown tool should not crash."""
         import asyncio
 
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         manager = MCPLifecycleManager(config)
         # Call with unknown tool name
         try:
@@ -243,10 +243,10 @@ class TestMCPLifecycleManager:
             pass  # Expected to fail for unknown tool
 
     def test_fetch_falls_back_to_local_mode_when_sdk_attach_fails(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("fetch")
         manager._try_attach_stdio_client = MagicMock(return_value=False)
         fetch_config = MCPServerConfig(**BUILTIN_MCP_SERVERS["fetch"])
@@ -257,10 +257,10 @@ class TestMCPLifecycleManager:
         assert state.attach_succeeded is True
 
     def test_fetch_starts_in_local_mode(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("fetch")
         fetch_config = MCPServerConfig(**BUILTIN_MCP_SERVERS["fetch"])
 
@@ -269,10 +269,10 @@ class TestMCPLifecycleManager:
         assert state.execution_mode == "local"
 
     def test_memory_falls_back_to_local_mode_when_sdk_attach_fails(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("memory")
         manager._try_attach_stdio_client = MagicMock(return_value=False)
         memory_config = MCPServerConfig(**BUILTIN_MCP_SERVERS["memory"])
@@ -282,10 +282,10 @@ class TestMCPLifecycleManager:
         assert state.execution_mode == "local"
 
     def test_memory_starts_in_local_mode(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("memory")
         memory_config = MCPServerConfig(**BUILTIN_MCP_SERVERS["memory"])
 
@@ -306,7 +306,7 @@ class TestMCPLifecycleManager:
         assert any(item.execution_mode in {"placeholder", "local"} for item in view.services)
 
     def test_render_mcp_call_result_parses_text_content(self):
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
         class TextItem:
@@ -318,14 +318,14 @@ class TestMCPLifecycleManager:
             structuredContent = {"ok": True}
             isError = False
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         rendered, structured, is_error = manager._render_mcp_call_result(DummyResult())
         assert rendered == "hello from mcp"
         assert structured == {"ok": True}
         assert is_error is False
 
     def test_render_mcp_call_result_parses_error_content(self):
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
         class TextItem:
@@ -337,17 +337,17 @@ class TestMCPLifecycleManager:
             structuredContent = None
             isError = True
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         rendered, structured, is_error = manager._render_mcp_call_result(DummyResult())
         assert rendered == "tool failed"
         assert structured is None
         assert is_error is True
 
     def test_stdio_placeholder_records_attach_attempt_and_error(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("chrome-devtools")
         cfg = MCPServerConfig(**BUILTIN_MCP_SERVERS["chrome-devtools"])
         assert manager._start_server("chrome-devtools", cfg) is True
@@ -358,10 +358,10 @@ class TestMCPLifecycleManager:
         assert state.last_error_type in {"sdk_unavailable", "config_error", "attach_failed", None}
 
     def test_attach_success_registers_runtime_tools(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("chrome-devtools")
         manager._probe_stdio_server = MagicMock(
             return_value=(
@@ -386,10 +386,10 @@ class TestMCPLifecycleManager:
         assert "navigate" not in tools
 
     def test_burp_attach_success_registers_runtime_tools(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("burp")
         manager._probe_stdio_server = MagicMock(
             return_value=(
@@ -414,10 +414,10 @@ class TestMCPLifecycleManager:
         assert "send_http1_request" not in tools
 
     def test_sse_placeholder_records_invalid_url_error(self):
-        from clawbot.config.schema import MCPServerConfig, MCPTransportConfig, VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig, MCPServerConfig, MCPTransportConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("jadx")
         cfg = MCPServerConfig(
             name="jadx",
@@ -434,10 +434,10 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_structured_result_for_local_tool(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("memory")
         manager._start_server("memory", MCPServerConfig(**BUILTIN_MCP_SERVERS["memory"]))
         result = await manager.call_tool("save", {"key": "demo", "value": "123"})
@@ -454,10 +454,10 @@ class TestMCPLifecycleManager:
     @pytest.mark.asyncio
     async def test_fetch_constraint_violation_returns_structured_error(self):
         from clawbot.agent.context import TaskConstraints
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("fetch")
         manager._start_server("fetch", MCPServerConfig(**BUILTIN_MCP_SERVERS["fetch"]))
 
@@ -472,10 +472,10 @@ class TestMCPLifecycleManager:
     @pytest.mark.asyncio
     async def test_fetch_host_constraint_violation_returns_structured_error(self):
         from clawbot.agent.context import TaskConstraints
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("fetch")
         manager._start_server("fetch", MCPServerConfig(**BUILTIN_MCP_SERVERS["fetch"]))
 
@@ -490,10 +490,10 @@ class TestMCPLifecycleManager:
     @pytest.mark.asyncio
     async def test_fetch_path_constraint_violation_returns_structured_error(self):
         from clawbot.agent.context import TaskConstraints
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("fetch")
         manager._start_server("fetch", MCPServerConfig(**BUILTIN_MCP_SERVERS["fetch"]))
 
@@ -507,10 +507,10 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_structured_result_for_placeholder_tool(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("chrome-devtools")
         manager._start_server(
             "chrome-devtools", MCPServerConfig(**BUILTIN_MCP_SERVERS["chrome-devtools"])
@@ -528,7 +528,7 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_success_for_chrome_when_stdio_call_succeeds(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
         class DummySession:
@@ -540,7 +540,7 @@ class TestMCPLifecycleManager:
                     "arguments": arguments,
                 }
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("chrome-devtools")
         manager._try_attach_stdio_client = MagicMock(return_value=True)
         manager._get_or_create_persistent_stdio_session = AsyncMock(return_value=DummySession())
@@ -566,7 +566,7 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_chrome_devtools_reuses_persistent_session(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
         class DummySession:
@@ -577,7 +577,7 @@ class TestMCPLifecycleManager:
                 self.calls += 1
                 return {"tool": tool_name, "arguments": arguments, "calls": self.calls}
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("chrome-devtools")
         manager._try_attach_stdio_client = MagicMock(return_value=True)
         session = DummySession()
@@ -604,7 +604,7 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_success_for_burp_when_stdio_call_succeeds(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnClawConfig
+        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig, MCPServerConfig
         from clawbot.mcp.lifecycle import MCPLifecycleManager
 
         class DummySession:
@@ -616,7 +616,7 @@ class TestMCPLifecycleManager:
                     "arguments": arguments,
                 }
 
-        manager = MCPLifecycleManager(VulnClawConfig())
+        manager = MCPLifecycleManager(ClawBotConfig())
         manager.registry.register_server("burp")
         manager._try_attach_stdio_client = MagicMock(return_value=True)
         manager._get_or_create_persistent_stdio_session = AsyncMock(return_value=DummySession())

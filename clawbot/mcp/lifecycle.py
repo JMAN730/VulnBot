@@ -1,4 +1,4 @@
-"""VulnClaw MCP Lifecycle Manager - start/stop MCP servers and manage their lifetime."""
+"""ClawBot MCP Lifecycle Manager - start/stop MCP servers and manage their lifetime."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from clawbot.agent.builtin_tools import infer_port_from_url
-from clawbot.config.schema import MCPServerConfig, VulnClawConfig
+from clawbot.config.schema import ClawBotConfig, MCPServerConfig
 from clawbot.mcp.registry import HealthStatus, MCPRegistry
 
 try:
@@ -40,7 +40,7 @@ class MCPLifecycleManager:
     HEALTHY_RATE = 0.9
     DEGRADED_RATE = 0.5
 
-    def __init__(self, config: VulnClawConfig) -> None:
+    def __init__(self, config: ClawBotConfig) -> None:
         self.config = config
         self.registry = MCPRegistry()
         self._processes: dict[str, subprocess.Popen] = {}

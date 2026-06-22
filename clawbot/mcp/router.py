@@ -1,10 +1,9 @@
-"""VulnClaw MCP Router - route natural language intents to MCP tool calls."""
+"""ClawBot MCP Router - route natural language intents to MCP tool calls."""
 
 from __future__ import annotations
 
 import re
 from typing import Any, Optional
-
 
 INTENT_TOOL_MAP: dict[str, list[dict[str, Any]]] = {
     # Browser automation

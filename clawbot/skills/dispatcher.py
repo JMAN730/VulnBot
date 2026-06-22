@@ -1,11 +1,10 @@
-"""VulnClaw Skill Dispatcher: match user intents to appropriate Skills."""
+"""ClawBot Skill Dispatcher: match user intents to appropriate Skills."""
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
 from clawbot.skills.loader import list_core_skills, list_specialized_skills, load_skill_by_name
-
 
 SKILL_INTENT_MAP: dict[str, list[str]] = {
     # Core skills

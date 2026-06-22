@@ -1,4 +1,4 @@
-"""VulnClaw Agent Core - the main AI agent loop with tool calling."""
+"""ClawBot Agent Core - the main AI agent loop with tool calling."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ from clawbot.agent.runtime_state import AgentResult, PersistentCycleResult, Runt
 from clawbot.agent.skill_context import get_active_skill_context
 from clawbot.agent.system_prompt import build_dynamic_system_prompt
 from clawbot.agent.tool_call_manager import safe_parse_tool_args
-from clawbot.config.schema import VulnClawConfig
+from clawbot.config.schema import ClawBotConfig
 from clawbot.target_state.store import save_target_state
 
 # Optional KB integration; gracefully degrade if KB data is unavailable.
@@ -56,7 +56,7 @@ except Exception:
 class AgentCore:
     """Core AI agent that orchestrates LLM calls and tool execution."""
 
-    def __init__(self, config: VulnClawConfig, mcp_manager: Any = None) -> None:
+    def __init__(self, config: ClawBotConfig, mcp_manager: Any = None) -> None:
         self.config = config
         self.mcp_manager = mcp_manager
         self.context = ContextManager()
@@ -93,7 +93,7 @@ class AgentCore:
         elif status == RetrieverStatus.KEYWORD_FALLBACK:
             console.print(
                 "[yellow][!] Knowledge base degraded to keyword mode "
-                "(chromadb is not installed; run pip install vulnclaw[kb] to enable semantic search)[/yellow]"
+                "(chromadb is not installed; run pip install clawbot[kb] to enable semantic search)[/yellow]"
             )
         else:
             console.print("[red][-] Knowledge base disabled (no available data)[/red]")

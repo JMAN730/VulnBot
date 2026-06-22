@@ -1,4 +1,4 @@
-"""VulnClaw MCP Registry - service metadata and tool registration."""
+"""ClawBot MCP Registry - service metadata and tool registration."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""VulnClaw Finding Parser - vulnerability detection from LLM responses."""
+"""ClawBot Finding Parser - vulnerability detection from LLM responses."""
 
 from __future__ import annotations
 

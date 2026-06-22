@@ -2,7 +2,7 @@
 
 Ports the *logic* of HackBot's ``vulndb.py`` (risk scoring) and ``diff_report.py``
 (assessment diff) — but with no second database. Everything operates on plain
-VulnClaw finding dicts and ``target_state`` snapshot dicts, so the canonical
+ClawBot finding dicts and ``target_state`` snapshot dicts, so the canonical
 store stays the single source of truth (spec §5.2).
 
 Exposes two read-only tools:

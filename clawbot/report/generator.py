@@ -1,4 +1,4 @@
-"""VulnClaw Report Generator - generate structured penetration test reports."""
+"""ClawBot Report Generator - generate structured penetration test reports."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ REPORT_TEMPLATE = """\
 | **Target** | {{ target }} |
 | **Test Start** | {{ started_at }} |
 | **Report Generated** | {{ generated_at }} |
-| **Tool** | VulnClaw v{{ version }} |
+| **Tool** | ClawBot v{{ version }} |
 | **Task Constraints** | {{ task_constraints_summary }} |
 
 ## 2. Executive Summary
@@ -158,7 +158,7 @@ No blocked scope events were recorded.
 
 ---
 
-> Report generated automatically by VulnClaw | {{ generated_at }}
+> Report generated automatically by ClawBot | {{ generated_at }}
 > Principle: unverified vulnerabilities are treated as false positives and excluded from detailed findings.
 """
 def generate_report(
@@ -283,7 +283,7 @@ def generate_report(
 
     if report_format.lower() == "html":
         html_content = Template(
-            """<!doctype html><html><head><meta charset="utf-8"><title>VulnClaw Report</title></head><body><pre>{{ content }}</pre></body></html>"""
+            """<!doctype html><html><head><meta charset="utf-8"><title>ClawBot Report</title></head><body><pre>{{ content }}</pre></body></html>"""
         ).render(content=report_content)
         output = output.with_suffix(".html") if output.suffix.lower() != ".html" else output
         output.write_text(html_content, encoding="utf-8")
@@ -466,11 +466,11 @@ No vulnerabilities have been found yet.
 
 ---
 
-> Persistent penetration test cycle report | VulnClaw | {{ generated_at }}
+> Persistent penetration test cycle report | ClawBot | {{ generated_at }}
 > Principle: unverified vulnerabilities are treated as false positives and excluded from detailed findings.
 """
 def _generate_attack_summary_from_session(session: SessionState) -> str:
-    """Generate a readable attack-path summary using VulnClaw's configured LLM."""
+    """Generate a readable attack-path summary using ClawBot's configured LLM."""
     try:
         from openai import OpenAI
 

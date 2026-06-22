@@ -1,4 +1,4 @@
-"""VulnClaw Report Module Tests - generator.py + poc_builder.py"""
+"""ClawBot Report Module Tests - generator.py + poc_builder.py"""
 
 from pathlib import Path
 
@@ -181,7 +181,7 @@ class TestReportGenerator:
         output = str(tmp_path / "report.md")
         generate_report(session, output)
         content = Path(output).read_text(encoding="utf-8")
-        assert "VulnClaw" in content
+        assert "ClawBot" in content
 
     def test_report_prefers_llm_attack_summary_when_generated_from_session(
         self, tmp_path, monkeypatch
@@ -191,19 +191,19 @@ class TestReportGenerator:
         session = self._make_session()
         monkeypatch.setattr(
             "clawbot.report.generator._generate_attack_summary_from_session",
-            lambda session: "This attack-path summary was generated through VulnClaw LLM integration.",
+            lambda session: "This attack-path summary was generated through ClawBot LLM integration.",
         )
 
         output = str(tmp_path / "report_llm_summary.md")
         generate_report(session, output)
         content = Path(output).read_text(encoding="utf-8")
-        assert "This attack-path summary was generated through VulnClaw LLM integration." in content
+        assert "This attack-path summary was generated through ClawBot LLM integration." in content
 
     def test_report_summary_uses_gpt5_token_parameter(self):
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
         from clawbot.report.generator import _build_report_summary_llm_kwargs
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.provider = "openai"
         config.llm.model = "gpt-5.5"
         config.llm.max_tokens = 4096

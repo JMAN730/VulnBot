@@ -1,4 +1,4 @@
-"""VulnClaw knowledge-base package."""
+"""ClawBot knowledge-base package."""
 
 from clawbot.kb.retriever import (
     KeywordRetriever,

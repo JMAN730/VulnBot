@@ -1,11 +1,11 @@
-"""VulnClaw system prompt builder - dynamic assembly of penetration test prompts."""
+"""ClawBot system prompt builder - dynamic assembly of penetration test prompts."""
 
 from __future__ import annotations
 
 from typing import Optional
 
 BASE_IDENTITY = """\
-You are VulnClaw, a professional AI penetration testing assistant operating only in
+You are ClawBot, a professional AI penetration testing assistant operating only in
 authorized security testing environments. You support security professionals with
 methodical reconnaissance, vulnerability discovery, verification, and reporting.
 """

@@ -1,4 +1,4 @@
-"""VulnClaw Crypto Toolkit — encoding/decoding, encryption/decryption utilities.
+"""ClawBot Crypto Toolkit — encoding/decoding, encryption/decryption utilities.
 
 Provides a unified interface for common crypto operations encountered
 during penetration testing and CTF challenges.

@@ -1,4 +1,4 @@
-"""VulnClaw basic integration tests: verify imports and version."""
+"""ClawBot basic integration tests: verify imports and version."""
 
 import pytest
 
@@ -6,6 +6,7 @@ import pytest
 def test_import_vulnclaw():
     """Test that the main package can be imported."""
     from pathlib import Path
+
     import tomllib
 
     import clawbot

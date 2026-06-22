@@ -1,4 +1,4 @@
-"""Internationalization support for VulnClaw."""
+"""Internationalization support for ClawBot."""
 
 from __future__ import annotations
 
@@ -64,12 +64,12 @@ class I18nLoader:
         """Detect language from environment or config.
 
         Priority:
-        1. VULNCLAW_LANG environment variable
+        1. CLAWBOT_LANG environment variable
         2. LANG environment variable
         3. Default to 'en'
         """
-        # VulnClaw is English-only; accept legacy values but normalize to English.
-        lang_env = os.environ.get("VULNCLAW_LANG", "").lower()
+        # ClawBot is English-only; accept legacy values but normalize to English.
+        lang_env = os.environ.get("CLAWBOT_LANG", "").lower()
         if lang_env in ("zh", "en"):
             return "en"
 
@@ -89,7 +89,7 @@ def init_i18n(lang: Optional[str] = None, config: Any = None) -> I18nLoader:
 
     Args:
         lang: Explicit language override. Only English is currently supported.
-        config: VulnClaw config object with session.language setting
+        config: ClawBot config object with session.language setting
     """
     global _translator
     if lang is None:

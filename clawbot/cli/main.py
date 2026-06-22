@@ -1,4 +1,4 @@
-"""VulnClaw CLI main entry point with REPL and sub-commands."""
+"""ClawBot CLI main entry point with REPL and sub-commands."""
 
 # ruff: noqa: E402
 
@@ -129,8 +129,8 @@ class TerminalStreamSink:
         self._console.print()
 
 app = typer.Typer(
-    name="vulnclaw",
-    help="VulnClaw - AI-powered penetration testing CLI (run 'vulnclaw tui' for the TUI workbench)",
+    name="clawbot",
+    help="ClawBot - AI-powered penetration testing CLI (run 'clawbot tui' for the TUI workbench)",
     no_args_is_help=False,
     add_completion=False,
 )
@@ -148,7 +148,7 @@ ASCII_LOGO = (
     "|___/\\__,_/_/_/ /_/\\____/_/\\__,_/ |__/|__/\n"
 )
 
-BANNER_SUBTITLE = f"VulnClaw v{__version__} - AI-powered penetration testing CLI"
+BANNER_SUBTITLE = f"ClawBot v{__version__} - AI-powered penetration testing CLI"
 
 
 def _print_banner() -> None:
@@ -246,10 +246,10 @@ def _run_repl() -> None:
             prompt_parts.append(f"[dim]{current_phase}[/]")
             if auto_mode_active:
                 prompt_parts.append("[bold yellow]AUTO[/]")
-            prompt_str = " | ".join(prompt_parts) if prompt_parts else "vulnclaw"
+            prompt_str = " | ".join(prompt_parts) if prompt_parts else "clawbot"
 
             # Read input
-            user_input = console.input(f"vulnclaw {prompt_str}> ").strip()
+            user_input = console.input(f"clawbot {prompt_str}> ").strip()
 
             if not user_input:
                 if last_auto_input:
@@ -1295,7 +1295,7 @@ def config_provider(
             console.print(f"    URL:  [dim]{p['base_url']}[/]")
             console.print(f"    Model: [dim]{p['default_model']}[/]")
             console.print()
-        console.print("[dim]Use vulnclaw config provider <name> to switch providers.[/]")
+        console.print("[dim]Use clawbot config provider <name> to switch providers.[/]")
         return
 
     # Switch provider
@@ -1323,7 +1323,7 @@ def config_provider(
     if not config.llm.api_key:
         console.print()
         console.print(
-            "[yellow]Set an API key first: [bold]vulnclaw config set llm.api_key <your-key>[/][/]"
+            "[yellow]Set an API key first: [bold]clawbot config set llm.api_key <your-key>[/][/]"
         )
 
 
@@ -1331,7 +1331,7 @@ def config_provider(
 
 @app.command()
 def init() -> None:
-    """Initialize VulnClaw config."""
+    """Initialize ClawBot config."""
     from clawbot.config.settings import ensure_dirs
 
     ensure_dirs()
@@ -1355,12 +1355,12 @@ def init() -> None:
 
 @app.command()
 def doctor() -> None:
-    """Inspect the VulnClaw runtime environment."""
+    """Inspect the ClawBot runtime environment."""
     import shutil
 
     from clawbot.web.services.mcp_service import get_mcp_diagnostics
 
-    console.print("[bold]VulnClaw Environment Check[/]")
+    console.print("[bold]ClawBot Environment Check[/]")
     console.print()
 
     # Check Python
@@ -1442,10 +1442,10 @@ def doctor() -> None:
 
     console.print()
     if has_key:
-        console.print("[green]Environment ready. Run [bold]vulnclaw[/] to start.[/]")
+        console.print("[green]Environment ready. Run [bold]clawbot[/] to start.[/]")
     else:
         console.print(
-            "[yellow]Set an API key first: [bold]vulnclaw config set llm.api_key <key>[/][/]"
+            "[yellow]Set an API key first: [bold]clawbot config set llm.api_key <key>[/][/]"
         )
 
 
@@ -1505,7 +1505,7 @@ def kb_status() -> None:
             f"Backend: [bold]{status.value}[/]\n"
             f"Detail: {detail or 'n/a'}\n"
             f"Entries: [bold]{total}[/] ({category_summary or 'empty'})\n"
-            f"Semantic search: run [bold]pip install vulnclaw\\[kb][/] to enable ChromaDB",
+            f"Semantic search: run [bold]pip install clawbot\\[kb][/] to enable ChromaDB",
             title="KB Status",
             border_style="cyan",
         )
@@ -1909,7 +1909,7 @@ def web(
             f"Port: [bold]{port}[/]\n"
             f"FastAPI: [{'green' if FASTAPI_AVAILABLE else 'yellow'}]{'installed' if FASTAPI_AVAILABLE else 'missing'}[/]\n"
             f"URL: [bold]http://{host}:{port}[/]",
-            title="VulnClaw Web UI",
+            title="ClawBot Web UI",
             border_style="cyan",
         )
     )
@@ -1920,7 +1920,7 @@ def web(
 
     if not FASTAPI_AVAILABLE:
         err_console.print(
-            "[!] FastAPI is missing. Install with [bold]pip install vulnclaw[web][/]."
+            "[!] FastAPI is missing. Install with [bold]pip install clawbot[web][/]."
         )
         raise typer.Exit(1)
 
@@ -1928,7 +1928,7 @@ def web(
         import uvicorn
     except ImportError:
         err_console.print(
-            "[!] uvicorn is missing. Install with [bold]pip install vulnclaw[web][/]."
+            "[!] uvicorn is missing. Install with [bold]pip install clawbot[web][/]."
         )
         raise typer.Exit(1)
 

@@ -1,4 +1,4 @@
-"""VulnClaw Agent Module Tests - context.py + memory.py + prompts.py + core.py"""
+"""ClawBot Agent Module Tests - context.py + memory.py + prompts.py + core.py"""
 
 import time
 
@@ -186,9 +186,9 @@ class TestAgentAutoSave:
     def test_auto_save_respects_config(self, monkeypatch, tmp_path):
         from clawbot.agent.context import SessionState
         from clawbot.agent.core import AgentCore
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.session.auto_save = False
         config.session.output_dir = tmp_path
 
@@ -586,7 +586,7 @@ class TestPromptBuilder:
         from clawbot.agent.prompts import build_system_prompt
 
         prompt = build_system_prompt()
-        assert "VulnClaw" in prompt
+        assert "ClawBot" in prompt
         assert "penetration testing" in prompt
 
     def test_prompt_with_target(self):
@@ -656,9 +656,9 @@ class TestAgentCore:
 
     def _make_agent(self):
         from clawbot.agent.core import AgentCore
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        return AgentCore(VulnClawConfig())
+        return AgentCore(ClawBotConfig())
 
     def test_init(self):
         agent = self._make_agent()
@@ -763,7 +763,7 @@ class TestAgentCore:
         agent = self._make_agent()
         prompt = agent._build_system_prompt(target="10.0.0.1", user_input="scan ports")
         assert "10.0.0.1" in prompt
-        assert "VulnClaw" in prompt
+        assert "ClawBot" in prompt
 
     def test_build_system_prompt_auto_mode(self):
         agent = self._make_agent()
@@ -1117,9 +1117,9 @@ class TestAgentCoreLoop:
 
     def _make_agent(self):
         from clawbot.agent.core import AgentCore
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.model = "gpt-4o-mini"
         config.llm.api_key = "sk-test"
         return AgentCore(config=config)

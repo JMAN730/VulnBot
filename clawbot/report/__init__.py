@@ -1,4 +1,4 @@
-"""VulnClaw Report Module - structured report generation with vulnerability verification."""
+"""ClawBot Report Module - structured report generation with vulnerability verification."""
 
 from clawbot.report.filter import ReportContentFilter, filter_report_content
 from clawbot.report.generator import (

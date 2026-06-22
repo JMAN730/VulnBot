@@ -1,4 +1,4 @@
-"""Textual-powered TUI workbench for VulnClaw."""
+"""Textual-powered TUI workbench for ClawBot."""
 
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from textual.screen import Screen
 from textual.widgets import Input, ListItem, ListView, RichLog, Static
 
 import clawbot.cli.tui as _tui
-
 from clawbot.cli.tui import (
     C_ACCENT,
     C_ERROR,
@@ -1333,7 +1332,7 @@ CSS = """
 
 # -- Application --
 
-class VulnClawApp(App):
+class ClawBotApp(App):
     CSS = CSS
 
     def __init__(self, session: dict[str, Any]):
@@ -1368,7 +1367,7 @@ def run_tui_textual(*, launcher=None, once=False, initial_state=None) -> None:
             "_launch": False,
         }
 
-        app = VulnClawApp(session)
+        app = ClawBotApp(session)
         try:
             app.run()
         except Exception as exc:

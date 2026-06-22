@@ -1,4 +1,4 @@
-"""VulnClaw session context management - track pentest state across turns."""
+"""ClawBot session context management - track pentest state across turns."""
 
 from __future__ import annotations
 

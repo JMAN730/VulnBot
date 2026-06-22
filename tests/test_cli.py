@@ -1,4 +1,4 @@
-"""VulnClaw CLI module tests for main.py."""
+"""ClawBot CLI module tests for main.py."""
 
 import io
 
@@ -23,7 +23,7 @@ class TestCLI:
 
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "VulnClaw" in result.output or "vulnclaw" in result.output.lower()
+        assert "ClawBot" in result.output or "clawbot" in result.output.lower()
         assert "TUI" in result.output
 
     def test_cli_version(self, runner):
@@ -40,8 +40,8 @@ class TestCLI:
         result = runner.invoke(app, ["init"])
         # Should not crash
         assert result.exit_code == 0
-        assert "vulnclaw" in result.output
-        assert "vulnclaw tui" in result.output
+        assert "clawbot" in result.output
+        assert "clawbot tui" in result.output
 
     def test_cli_doctor(self, runner):
         from clawbot.cli.main import app
@@ -51,7 +51,7 @@ class TestCLI:
         assert result.exit_code == 0
         assert "Registered:" in result.output
         assert "Tools:" in result.output
-        assert "vulnclaw tui" in result.output or "Set an API key first" in result.output
+        assert "clawbot tui" in result.output or "Set an API key first" in result.output
 
     def test_cli_config_list(self, runner):
         from clawbot.cli.main import app
@@ -137,9 +137,9 @@ class TestCLI:
         import clawbot.mcp.lifecycle as lifecycle_mod
         from clawbot.agent.context import PentestPhase, SessionState
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
 
         old_state = SessionState(target="https://old.example")
@@ -233,9 +233,9 @@ class TestCLI:
         import clawbot.cli.main as cli_main
         import clawbot.mcp.lifecycle as lifecycle_mod
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
 
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
@@ -260,9 +260,9 @@ class TestCLI:
     def test_run_uses_shared_orchestrator(self, runner, monkeypatch):
         import clawbot.cli.main as cli_main
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
 
@@ -281,9 +281,9 @@ class TestCLI:
     def test_run_cli_constraints_are_appended_to_prompt(self, runner, monkeypatch):
         import clawbot.cli.main as cli_main
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
 
@@ -322,9 +322,9 @@ class TestCLI:
     def test_run_cli_blocked_host_and_path_are_appended_to_prompt(self, runner, monkeypatch):
         import clawbot.cli.main as cli_main
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
 
@@ -360,9 +360,9 @@ class TestCLI:
     def test_cli_blocks_command_when_allowed_actions_conflict(self, runner, monkeypatch):
         import clawbot.cli.main as cli_main
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
         monkeypatch.setattr(
@@ -377,9 +377,9 @@ class TestCLI:
     def test_cli_blocks_command_with_explicit_allow_actions_option(self, runner):
         import clawbot.cli.main as cli_main
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
@@ -391,9 +391,9 @@ class TestCLI:
     def test_persistent_command_uses_correct_cycle_callback(self, runner, monkeypatch):
         import clawbot.cli.main as cli_main
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
 
@@ -426,9 +426,9 @@ class TestCLI:
         import clawbot.mcp.lifecycle as lifecycle_mod
         from clawbot.agent.context import SessionState, VulnerabilityFinding
         from clawbot.cli.main import app
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
 
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
@@ -578,7 +578,7 @@ class TestCLI:
 
         result = runner.invoke(app, ["tui", "--once"])
         assert result.exit_code == 0
-        assert "VulnClaw TUI" in result.output
+        assert "ClawBot TUI" in result.output
         assert "Authorized Target" in result.output
         assert "Run Overview" in result.output
         assert "No target selected" in result.output
@@ -669,7 +669,7 @@ class TestCLI:
         )
         assert result.exit_code == 0
         assert "Launch Summary" in result.output
-        assert "vulnclaw scan https://example.com" in result.output
+        assert "clawbot scan https://example.com" in result.output
         assert "--only-port 443" in result.output
         assert "--only-path /admin" in result.output
         assert "--blocked-host staging.example.com" in result.output
@@ -746,9 +746,9 @@ class TestCLI:
 
     def test_tui_runtime_diagnostic_panel_renders_environment_summary(self, monkeypatch):
         import clawbot.cli.tui as tui_mod
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         config.llm.api_key = "test-key"
         config.llm.provider = "openai"
         config.llm.model = "gpt-test"
@@ -789,9 +789,9 @@ class TestCLI:
 
     def test_tui_llm_config_prompt_saves_provider_and_api_key(self, monkeypatch):
         import clawbot.cli.tui as tui_mod
-        from clawbot.config.schema import VulnClawConfig
+        from clawbot.config.schema import ClawBotConfig
 
-        config = VulnClawConfig()
+        config = ClawBotConfig()
         # New flow: provider -> base_url -> api_key -> fetch models -> model -> enter
         answers = iter(
             [
