@@ -116,6 +116,49 @@ def intel_tool_schemas() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "compliance_map",
+                "description": (
+                    "Map security findings to compliance controls (PCI DSS v4.0, "
+                    "NIST 800-53, OWASP Top 10, ISO 27001) with gap analysis. "
+                    "Read-only. Uses the provided findings, or the current session's "
+                    "findings if none are passed."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "findings": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {"type": "string"},
+                                    "severity": {"type": "string"},
+                                    "description": {"type": "string"},
+                                    "evidence": {"type": "string"},
+                                },
+                            },
+                            "description": "Findings to map (optional; defaults to session findings).",
+                        },
+                        "frameworks": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["pci", "nist", "owasp", "iso"],
+                            },
+                            "description": "Subset of frameworks (default: all four).",
+                        },
+                        "target": {
+                            "type": "string",
+                            "description": "Assessment target for the report header.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+        },
     ]
 
 
@@ -128,6 +171,7 @@ async def _stub(tool_name: str, args: dict[str, Any]) -> str:
 
 def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str]]]:
     """Map tool name -> async handler. Each ported module registers here."""
+    from clawbot.intel.compliance import compliance_map_tool
     from clawbot.intel.cve import cve_lookup_tool
     from clawbot.intel.osint import osint_recon_tool
     from clawbot.intel.topology import topology_build_tool
@@ -136,6 +180,7 @@ def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str
         "cve_lookup": cve_lookup_tool,
         "osint_recon": osint_recon_tool,
         "topology_build": topology_build_tool,
+        "compliance_map": compliance_map_tool,
     }
 
 
