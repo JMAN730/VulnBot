@@ -225,10 +225,16 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\cla
   deferred to its own plan before release.
 - **Intel seam live:** `clawbot/intel/` + `intel/tools.py` registry; wired into
   `agent/builtin_tools.py` at two seams (schema list + dispatch); read-only intel
-  tools classified as passive `recon` in `constraint_policy`. `cve_lookup` ships
-  as a structured stub, replaced by the CVE port (Plan 2).
-- **Verification:** `pip install -e .[dev]` + `clawbot` import OK; **524 passed,
-  1 skipped**, ruff clean.
+  tools classified as passive `recon` in `constraint_policy`.
+- **Plan 2 (CVE) DONE:** `clawbot/intel/cve.py` ports HackBot's CVE module to
+  async httpx — NVD keyword + CVE-ID lookup, best-effort GitHub PoC discovery,
+  markdown formatting. The `cve_lookup` stub is replaced by the real handler; a
+  `cve-triage` methodology skill ships alongside. Tested via `httpx.MockTransport`
+  (no network).
+- **Verification:** `pip install -e .[dev]` + `clawbot` import OK; **532 passed,
+  1 skipped**. `clawbot/intel` is ruff-clean; **5 pre-existing upstream ruff nits**
+  remain in VulnClaw files (cli/tui_textual, mcp/router, skills/crypto_tools,
+  skills/dispatcher, tests/test_basic) — tracked for the cleanup/rebranding sweep.
 - **Known pre-existing failure (NOT from the merge):**
   `tests/test_web.py::...test_web_target_service_lists_targets` fails because
   VulnClaw's finding-dedup drops a second empty-ID finding during target-state
@@ -237,6 +243,7 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\cla
   Python 3.14.4 + pydantic 2.13.4. Tracked as an upstream/compat issue, out of
   scope for the rename foundation.
 
-**Deferred plans (each authored at port time):** Rebranding sweep · CVE · OSINT ·
+**Done:** Foundation (steps 0–1) · CVE (Plan 2).
+**Deferred plans (each authored at port time):** Rebranding sweep · OSINT ·
 Topology · Findings · Compliance/MITRE · Remediation · PDF export · Integration
-& release (spec §12 steps 2–9).
+& release (spec §12 steps 3–9).
