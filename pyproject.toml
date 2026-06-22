@@ -58,6 +58,11 @@ web = [
 kb = [
     "chromadb>=0.4.0",
 ]
+osint = [
+    # Optional enhancement for the osint_recon tool's DNS resolution.
+    # Without it, DNS falls back to the stdlib socket resolver.
+    "dnspython>=2.5.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/Unclecheng-li/VulnClaw"

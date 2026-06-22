@@ -13,6 +13,10 @@ from typing import Any, Awaitable, Callable
 # target, no host-changing action.
 READ_ONLY_INTEL_TOOLS: set[str] = {"cve_lookup", "compliance_map", "remediation_advice"}
 
+# Active-recon tools: they contact the target / third-party services but are
+# low-impact reconnaissance. The constraint policy classifies them as "recon".
+RECON_INTEL_TOOLS: set[str] = {"osint_recon"}
+
 
 def intel_tool_schemas() -> list[dict[str, Any]]:
     """OpenAI tool schemas for all intel tools."""
@@ -45,6 +49,41 @@ def intel_tool_schemas() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "osint_recon",
+                "description": (
+                    "Run OSINT reconnaissance on a domain: subdomain enumeration "
+                    "(Certificate Transparency), DNS records, WHOIS/RDAP, web "
+                    "technology fingerprinting, and common-email candidates. "
+                    "Active recon — contacts the target and third-party services."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "domain": {
+                            "type": "string",
+                            "description": "Target domain, e.g. example.com.",
+                        },
+                        "modules": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["subdomains", "dns", "whois", "tech", "emails"],
+                            },
+                            "description": "Subset of modules to run (default: all).",
+                        },
+                        "bruteforce": {
+                            "type": "boolean",
+                            "description": "DNS-brute-force a built-in subdomain wordlist.",
+                            "default": False,
+                        },
+                    },
+                    "required": ["domain"],
+                },
+            },
+        },
     ]
 
 
@@ -58,9 +97,11 @@ async def _stub(tool_name: str, args: dict[str, Any]) -> str:
 def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str]]]:
     """Map tool name -> async handler. Each ported module registers here."""
     from clawbot.intel.cve import cve_lookup_tool
+    from clawbot.intel.osint import osint_recon_tool
 
     return {
         "cve_lookup": cve_lookup_tool,
+        "osint_recon": osint_recon_tool,
     }
 
 

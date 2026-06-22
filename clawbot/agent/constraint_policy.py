@@ -73,11 +73,11 @@ def infer_tool_action(tool_name: str, args: dict[str, object]) -> str:
     """Infer the effective action class of a tool invocation."""
     normalized_tool = (tool_name or "").strip().lower()
 
-    # Read-only intel tools (CVE/compliance/remediation lookups) are passive:
-    # no egress to the target, no host-changing action.
-    from clawbot.intel.tools import READ_ONLY_INTEL_TOOLS
+    # Intel tools: read-only lookups (no target egress) and active recon
+    # (low-impact target/3rd-party contact) both classify as passive "recon".
+    from clawbot.intel.tools import READ_ONLY_INTEL_TOOLS, RECON_INTEL_TOOLS
 
-    if normalized_tool in READ_ONLY_INTEL_TOOLS:
+    if normalized_tool in READ_ONLY_INTEL_TOOLS or normalized_tool in RECON_INTEL_TOOLS:
         return "recon"
 
     if normalized_tool == "nmap_scan":
