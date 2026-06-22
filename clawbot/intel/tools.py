@@ -18,6 +18,7 @@ READ_ONLY_INTEL_TOOLS: set[str] = {
     "topology_build",
     "findings_report",
     "findings_diff",
+    "attack_map",
 }
 
 # Active-recon tools: they contact the target / third-party services but are
@@ -247,6 +248,39 @@ def intel_tool_schemas() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "attack_map",
+                "description": (
+                    "Map findings (and optional tool usage) to MITRE ATT&CK "
+                    "techniques/tactics. Read-only. Returns a markdown report, or "
+                    "an ATT&CK Navigator layer JSON when format='navigator'."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "findings": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Findings to map (optional; defaults to session findings).",
+                        },
+                        "tool_history": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Optional tool-execution records to map to techniques.",
+                        },
+                        "target": {"type": "string", "description": "Assessment target label."},
+                        "format": {
+                            "type": "string",
+                            "enum": ["markdown", "navigator"],
+                            "description": "Output format (default: markdown).",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+        },
     ]
 
 
@@ -259,6 +293,7 @@ async def _stub(tool_name: str, args: dict[str, Any]) -> str:
 
 def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str]]]:
     """Map tool name -> async handler. Each ported module registers here."""
+    from clawbot.intel.attack import attack_map_tool
     from clawbot.intel.compliance import compliance_map_tool
     from clawbot.intel.cve import cve_lookup_tool
     from clawbot.intel.findings import findings_diff_tool, findings_report_tool
@@ -274,6 +309,7 @@ def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str
         "findings_report": findings_report_tool,
         "findings_diff": findings_diff_tool,
         "remediation_advice": remediation_advice_tool,
+        "attack_map": attack_map_tool,
     }
 
 
