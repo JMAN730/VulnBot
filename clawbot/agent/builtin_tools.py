@@ -16,6 +16,11 @@ from typing import Any
 from urllib.parse import urlparse
 
 from clawbot.agent.constraint_policy import validate_tool_action
+from clawbot.intel.tools import (
+    INTEL_TOOL_NAMES,
+    dispatch_intel_tool,
+    intel_tool_schemas,
+)
 
 BLOCKED_PATTERNS: list[str] = [
     r"os\.\s*system\s*\(",
@@ -87,6 +92,9 @@ async def execute_mcp_tool(agent: Any, tool_name: str, args: dict[str, Any]) -> 
                     detail=json.dumps(args, ensure_ascii=False)[:500],
                 )
             return f"[constraint_violation] {tool_violation}"
+
+    if tool_name in INTEL_TOOL_NAMES:
+        return await dispatch_intel_tool(agent, tool_name, args)
 
     if tool_name == "python_execute":
         return await execute_python(agent, args)
@@ -475,6 +483,8 @@ def build_openai_tools(mcp_manager: Any) -> list[dict[str, Any]]:
                     },
                 }
             )
+
+    tools.extend(intel_tool_schemas())
 
     return tools
 
