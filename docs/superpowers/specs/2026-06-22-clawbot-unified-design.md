@@ -244,16 +244,18 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\cla
   scope for the rename foundation.
 
 **Done:** Foundation (0–1) · CVE · OSINT · Topology · Compliance (frameworks) ·
-Findings (risk/diff) · Remediation.
-**Deferred plans (each authored at port time):** Rebranding sweep · PDF export ·
-MITRE ATT&CK (HackBot `attack.py`) · Integration & release.
+Findings (risk/diff) · Remediation · PDF export · MITRE ATT&CK. **All capability
+modules ported.**
+**Remaining:** Rebranding sweep (config dir / banners / prompts / frontend →
+ClawBot + tests) · Integration & release (CLI wiring for PDF, README, CI matrix,
+packaging smoke).
 
-7 intel tools live: `cve_lookup`, `osint_recon`, `topology_build`,
-`compliance_map`, `findings_report`, `findings_diff`, `remediation_advice`.
-Findings notes: `intel/findings.py` ports vulndb risk weights + diff_report
-fuzzy-matching over target_state (no second DB). Remediation notes:
-`intel/remediation.py` vendors HackBot's rule KB (21 patterns), rule-based path
-only. Suite: **590 passed, 1 skipped**.
+**8 intel tools live:** `cve_lookup`, `osint_recon`, `topology_build`,
+`compliance_map`, `findings_report`, `findings_diff`, `remediation_advice`,
+`attack_map`. PDF: `report/pdf_exporter.py` (`[pdf]` extra, markdown→PDF, lazy
+reportlab). ATT&CK: `intel/attack.py` vendored (tactics/techniques/tool-map +
+Navigator-layer JSON). Suite: **604 passed, 1 skipped** (only the pre-existing
+upstream target-state dedup test fails, unrelated to the merge).
 
 Compliance notes: `clawbot/intel/compliance.py` — keyword-rule mapping to PCI
 DSS v4.0 / NIST 800-53 / OWASP Top 10 / ISO 27001 with gap analysis; read-only
