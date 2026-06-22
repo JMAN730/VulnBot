@@ -246,9 +246,19 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\cla
 **Done:** Foundation (0–1) · CVE · OSINT · Topology · Compliance (frameworks) ·
 Findings (risk/diff) · Remediation · PDF export · MITRE ATT&CK · **Rebranding
 sweep**. All capability modules ported; product is now consistently "ClawBot".
-**Remaining:** Integration & release — README refresh, CI matrix. (CLI PDF wiring
-✓, entrypoint smoke ✓.) Optional cleanup: pre-existing upstream `crypto_tools`
-morse-table duplicate-key (F601); target-state dedup test (Python 3.14 / pydantic).
+**Status: feature-complete.** All capability modules ported, product fully
+rebranded to ClawBot, CLI-integrated, CI/README updated, ruff fully clean.
+
+Integration & release — DONE: CLI PDF wiring ✓, entrypoint smoke ✓, README
+refresh ✓ (commands/install/intel-tools section; attribution preserved), CI ✓
+(`ci.yml` now `ruff check clawbot tests` + installs `[dev,web,pdf,osint]`;
+`release.yml` artifact `clawbot-dist`). Fixed the upstream `crypto_tools` morse
+duplicate-key (F601) — ruff is now clean across the whole tree.
+
+**Known/deferred:** target-state dedup test (`test_web_target_service_lists_targets`)
+fails under Python 3.14 + pydantic 2.13.4 — pre-existing upstream, unrelated to the
+merge. Local wheel build blocked by Windows Defender quarantining offensive-content
+skill docs (env issue; builds on CI/Linux). Frontend (`npx tsc`) not run locally.
 
 Integration progress:
 - **CLI PDF wiring DONE** — `clawbot report ... --pdf [--pdf-out PATH]` renders the
