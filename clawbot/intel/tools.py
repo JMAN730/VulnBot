@@ -216,6 +216,37 @@ def intel_tool_schemas() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "remediation_advice",
+                "description": (
+                    "Generate actionable remediation guidance (fix commands, config "
+                    "patches, code snippets) for findings from a built-in rule "
+                    "knowledge base. Read-only. Accepts findings, a vuln 'query' "
+                    "string, or the current session's findings."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "findings": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Findings to remediate (optional).",
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": "A vulnerability type/title to remediate, e.g. 'SQL injection'.",
+                        },
+                        "severity": {
+                            "type": "string",
+                            "description": "Severity for a 'query' finding (default Medium).",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+        },
     ]
 
 
@@ -232,6 +263,7 @@ def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str
     from clawbot.intel.cve import cve_lookup_tool
     from clawbot.intel.findings import findings_diff_tool, findings_report_tool
     from clawbot.intel.osint import osint_recon_tool
+    from clawbot.intel.remediation import remediation_advice_tool
     from clawbot.intel.topology import topology_build_tool
 
     return {
@@ -241,6 +273,7 @@ def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str
         "compliance_map": compliance_map_tool,
         "findings_report": findings_report_tool,
         "findings_diff": findings_diff_tool,
+        "remediation_advice": remediation_advice_tool,
     }
 
 
