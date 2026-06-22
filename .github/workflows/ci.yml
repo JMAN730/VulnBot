@@ -35,14 +35,14 @@ jobs:
         run: python -m pip install --upgrade pip
 
       - name: Install backend package
-        run: pip install -e ".[dev,web]"
+        run: pip install -e ".[dev,web,pdf,osint]"
 
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
 
       - name: Ruff
-        run: ruff check vulnclaw tests
+        run: ruff check clawbot tests
 
       - name: Frontend typecheck
         working-directory: frontend

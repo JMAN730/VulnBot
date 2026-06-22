@@ -45,7 +45,7 @@ jobs:
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: vulnclaw-dist
+          name: clawbot-dist
           path: dist/*
 
       - name: Create GitHub release
