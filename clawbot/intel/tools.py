@@ -16,6 +16,8 @@ READ_ONLY_INTEL_TOOLS: set[str] = {
     "compliance_map",
     "remediation_advice",
     "topology_build",
+    "findings_report",
+    "findings_diff",
 }
 
 # Active-recon tools: they contact the target / third-party services but are
@@ -159,6 +161,61 @@ def intel_tool_schemas() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "findings_report",
+                "description": (
+                    "Risk-score findings: severity breakdown, total risk, top "
+                    "risks, and optional compliance-control coverage. Read-only. "
+                    "Uses provided findings or the current session's findings."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "findings": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Findings to score (optional; defaults to session findings).",
+                        },
+                        "with_compliance": {
+                            "type": "boolean",
+                            "description": "Include compliance-control coverage.",
+                            "default": False,
+                        },
+                    },
+                    "required": [],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "findings_diff",
+                "description": (
+                    "Diff two assessments: report new / fixed / persistent findings "
+                    "(and severity regressions) between a baseline and the current "
+                    "set. Read-only/offline."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "baseline": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Baseline (older) findings.",
+                        },
+                        "current": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Current (newer) findings (optional; defaults to session findings).",
+                        },
+                        "target": {"type": "string", "description": "Target label for the report."},
+                    },
+                    "required": ["baseline"],
+                },
+            },
+        },
     ]
 
 
@@ -173,6 +230,7 @@ def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str
     """Map tool name -> async handler. Each ported module registers here."""
     from clawbot.intel.compliance import compliance_map_tool
     from clawbot.intel.cve import cve_lookup_tool
+    from clawbot.intel.findings import findings_diff_tool, findings_report_tool
     from clawbot.intel.osint import osint_recon_tool
     from clawbot.intel.topology import topology_build_tool
 
@@ -181,6 +239,8 @@ def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str
         "osint_recon": osint_recon_tool,
         "topology_build": topology_build_tool,
         "compliance_map": compliance_map_tool,
+        "findings_report": findings_report_tool,
+        "findings_diff": findings_diff_tool,
     }
 
 
