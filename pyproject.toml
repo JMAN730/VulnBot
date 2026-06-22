@@ -63,6 +63,10 @@ osint = [
     # Without it, DNS falls back to the stdlib socket resolver.
     "dnspython>=2.5.0",
 ]
+pdf = [
+    # Optional: render reports to PDF via report.pdf_exporter.
+    "reportlab>=4.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/Unclecheng-li/VulnClaw"
