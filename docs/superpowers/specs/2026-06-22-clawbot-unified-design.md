@@ -244,11 +244,17 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\cla
   scope for the rename foundation.
 
 **Done:** Foundation (0–1) · CVE · OSINT · Topology · Compliance (frameworks) ·
-Findings (risk/diff) · Remediation · PDF export · MITRE ATT&CK. **All capability
-modules ported.**
-**Remaining:** Rebranding sweep (config dir / banners / prompts / frontend →
-ClawBot + tests) · Integration & release (CLI wiring for PDF, README, CI matrix,
-packaging smoke).
+Findings (risk/diff) · Remediation · PDF export · MITRE ATT&CK · **Rebranding
+sweep**. All capability modules ported; product is now consistently "ClawBot".
+**Remaining:** Integration & release (CLI wiring for PDF export, README refresh,
+CI matrix, packaging smoke `pip install .` + `clawbot --help`). Optional cleanup:
+fix the pre-existing upstream `crypto_tools` morse-table duplicate-key (F601) and
+the target-state dedup test (Python 3.14 / pydantic).
+
+Rebranding sweep: VulnClaw→ClawBot across python/tests/frontend/i18n/static +
+config dir `~/.clawbot` + env prefix `CLAWBOT_` + `ClawBotConfig`. Upstream
+attribution (VulnClaw repo URL, NOTICE, README) preserved. Suite still **604
+passed, 1 skipped**.
 
 **8 intel tools live:** `cve_lookup`, `osint_recon`, `topology_build`,
 `compliance_map`, `findings_report`, `findings_diff`, `remediation_advice`,
