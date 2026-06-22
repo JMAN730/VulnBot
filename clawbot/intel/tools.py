@@ -11,7 +11,12 @@ from typing import Any, Awaitable, Callable
 
 # Read-only tools the constraint policy may treat as passive: no egress to the
 # target, no host-changing action.
-READ_ONLY_INTEL_TOOLS: set[str] = {"cve_lookup", "compliance_map", "remediation_advice"}
+READ_ONLY_INTEL_TOOLS: set[str] = {
+    "cve_lookup",
+    "compliance_map",
+    "remediation_advice",
+    "topology_build",
+}
 
 # Active-recon tools: they contact the target / third-party services but are
 # low-impact reconnaissance. The constraint policy classifies them as "recon".
@@ -84,6 +89,33 @@ def intel_tool_schemas() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "topology_build",
+                "description": (
+                    "Build a network topology (hosts, ports, services, subnets) "
+                    "from nmap (text or XML) or masscan scan output. Offline/read-only "
+                    "— parses scan text you already have. Returns markdown, ascii, or json."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "scan_output": {
+                            "type": "string",
+                            "description": "Raw nmap/masscan output (text or nmap XML).",
+                        },
+                        "format": {
+                            "type": "string",
+                            "enum": ["markdown", "ascii", "json"],
+                            "description": "Output format (default: markdown).",
+                            "default": "markdown",
+                        },
+                    },
+                    "required": ["scan_output"],
+                },
+            },
+        },
     ]
 
 
@@ -98,10 +130,12 @@ def _build_handlers() -> dict[str, Callable[[Any, dict[str, Any]], Awaitable[str
     """Map tool name -> async handler. Each ported module registers here."""
     from clawbot.intel.cve import cve_lookup_tool
     from clawbot.intel.osint import osint_recon_tool
+    from clawbot.intel.topology import topology_build_tool
 
     return {
         "cve_lookup": cve_lookup_tool,
         "osint_recon": osint_recon_tool,
+        "topology_build": topology_build_tool,
     }
 
 
