@@ -1,7 +1,7 @@
 import pytest
 
-from clawbot.intel import tools as intel_tools
-from clawbot.intel.tools import INTEL_TOOL_NAMES, dispatch_intel_tool, intel_tool_schemas
+from vulnbot.intel import tools as intel_tools
+from vulnbot.intel.tools import INTEL_TOOL_NAMES, dispatch_intel_tool, intel_tool_schemas
 
 
 def test_schemas_expose_cve_lookup():

@@ -2,8 +2,8 @@
 
 import pytest
 
-from clawbot.agent.core import AgentCore
-from clawbot.agent.think_filter import format_think_tags, strip_think_tags
+from vulnbot.agent.core import AgentCore
+from vulnbot.agent.think_filter import format_think_tags, strip_think_tags
 
 
 class _FakeMessage:

@@ -17,7 +17,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("ClawBot Web UI crashed", error, errorInfo);
+    console.error("VulnBot Web UI crashed", error, errorInfo);
   }
 
   render() {

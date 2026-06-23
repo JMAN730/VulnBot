@@ -1,5 +1,5 @@
-from clawbot.agent.constraint_policy import infer_tool_action
-from clawbot.intel.tools import READ_ONLY_INTEL_TOOLS, RECON_INTEL_TOOLS
+from vulnbot.agent.constraint_policy import infer_tool_action
+from vulnbot.intel.tools import READ_ONLY_INTEL_TOOLS, RECON_INTEL_TOOLS
 
 
 def test_read_only_intel_tools_are_recon():

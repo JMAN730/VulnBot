@@ -1,5 +1,5 @@
 {
-  "name": "clawbot-web-ui",
+  "name": "vulnbot-web-ui",
   "version": "0.3.1",
   "private": true,
   "type": "module",

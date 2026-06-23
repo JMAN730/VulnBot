@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from clawbot.intel.attack import AttackMapper, attack_map_tool
+from vulnbot.intel.attack import AttackMapper, attack_map_tool
 
 SQLI = {"title": "SQL Injection", "severity": "High", "description": "sql injection union select"}
 
@@ -24,7 +24,7 @@ def test_tool_techniques_lookup():
 def test_navigator_layer_is_valid_json():
     rep = AttackMapper().map_findings([SQLI], target="example.com")
     layer = json.loads(AttackMapper().generate_navigator_json(rep))
-    assert layer["name"].startswith("ClawBot")
+    assert layer["name"].startswith("VulnBot")
     assert "techniques" in layer
     assert layer.get("domain") or layer.get("versions")
 

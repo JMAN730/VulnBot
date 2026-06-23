@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from clawbot.agent.llm_client import (
+from vulnbot.agent.llm_client import (
     _assemble_tool_calls,
     _collect_tool_call_deltas,
     _validate_tool_call,
@@ -302,7 +302,7 @@ class TestStreamEndToEnd:
             captured["tool_calls"] = list(message.tool_calls)
             return "tool done"
 
-        import clawbot.agent.llm_client as mod
+        import vulnbot.agent.llm_client as mod
 
         orig = mod.handle_tool_calls
         mod.handle_tool_calls = fake_handle
@@ -335,7 +335,7 @@ class TestStreamEndToEnd:
             called["handle"] = True
             return "x"
 
-        import clawbot.agent.llm_client as mod
+        import vulnbot.agent.llm_client as mod
 
         orig = mod.handle_tool_calls
         mod.handle_tool_calls = fake_handle
@@ -437,7 +437,7 @@ class TestAutoStreamRobustness:
         async def fake_handle(agent_obj, message):
             return [{"tool_call_id": "c1", "content": "result"}], []
 
-        import clawbot.agent.llm_client as mod
+        import vulnbot.agent.llm_client as mod
 
         orig = mod.handle_tool_calls_with_results
         mod.handle_tool_calls_with_results = fake_handle

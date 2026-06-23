@@ -1,42 +1,42 @@
-# ClawBot Foundation Implementation Plan
+# VulnBot Foundation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up the `clawbot` package as a clean fork of VulnClaw (renamed, tests green, attribution in place) with the `intel/` tool-plumbing seam wired into the agent, ready for per-module ports.
+**Goal:** Stand up the `vulnbot` package as a clean fork of VulnClaw (renamed, tests green, attribution in place) with the `intel/` tool-plumbing seam wired into the agent, ready for per-module ports.
 
-**Architecture:** Copy the VulnClaw working tree into a fresh sibling repo `C:\Users\jo\github\clawbot`, mechanically rename `vulnclaw` -> `clawbot` (package, imports, entrypoint, config dir), then add an `intel/` subpackage whose tool schemas/dispatch are registered at two seams in `agent/builtin_tools.py`. A stub `cve_lookup` tool proves the dispatch path end-to-end via TDD; real modules replace stubs in later plans.
+**Architecture:** Copy the VulnClaw working tree into a fresh sibling repo `C:\Users\jo\github\vulnbot`, mechanically rename `vulnclaw` -> `vulnbot` (package, imports, entrypoint, config dir), then add an `intel/` subpackage whose tool schemas/dispatch are registered at two seams in `agent/builtin_tools.py`. A stub `cve_lookup` tool proves the dispatch path end-to-end via TDD; real modules replace stubs in later plans.
 
 **Tech Stack:** Python 3.10+, hatchling, typer, httpx, pydantic, pytest (`asyncio_mode=auto`), ruff. Source donors (read-only): `C:\Users\jo\github\VulnClaw`, `C:\Users\jo\github\hackbot`.
 
-**Source-of-truth spec:** `docs/superpowers/specs/2026-06-22-clawbot-unified-design.md` (in the hackbot repo).
+**Source-of-truth spec:** `docs/superpowers/specs/2026-06-22-vulnbot-unified-design.md` (in the hackbot repo).
 
 ---
 
 ## File Structure
 
-| Path (under `clawbot/` repo root) | Responsibility |
+| Path (under `vulnbot/` repo root) | Responsibility |
 |---|---|
-| `clawbot/` | Renamed package (was `vulnclaw/`) — agent, mcp, skills, report, target_state, config, cli, web |
-| `clawbot/intel/__init__.py` | New subpackage marker |
-| `clawbot/intel/tools.py` | Intel tool schemas + name->dispatcher routing |
-| `clawbot/agent/builtin_tools.py` | Extended at two seams (schema list + dispatch branch) |
+| `vulnbot/` | Renamed package (was `vulnclaw/`) — agent, mcp, skills, report, target_state, config, cli, web |
+| `vulnbot/intel/__init__.py` | New subpackage marker |
+| `vulnbot/intel/tools.py` | Intel tool schemas + name->dispatcher routing |
+| `vulnbot/agent/builtin_tools.py` | Extended at two seams (schema list + dispatch branch) |
 | `tests/intel/test_tool_plumbing.py` | Tests dispatch routing + schema exposure |
 | `NOTICE` | Dual attribution (Yashab Alam, UncleC) |
-| `pyproject.toml` | Renamed project + entrypoint `clawbot = "clawbot.cli.main:app"` |
+| `pyproject.toml` | Renamed project + entrypoint `vulnbot = "vulnbot.cli.main:app"` |
 
 ---
 
-## Task 1: Scaffold the clawbot repo from VulnClaw
+## Task 1: Scaffold the vulnbot repo from VulnClaw
 
 **Files:**
-- Create: `C:\Users\jo\github\clawbot\` (entire tree, copied from VulnClaw)
+- Create: `C:\Users\jo\github\vulnbot\` (entire tree, copied from VulnClaw)
 
 - [ ] **Step 1: Copy the VulnClaw working tree (excluding git/caches) to the new sibling dir**
 
 Run (Bash tool):
 ```bash
 SRC=/c/Users/jo/github/VulnClaw
-DST=/c/Users/jo/github/clawbot
+DST=/c/Users/jo/github/vulnbot
 mkdir -p "$DST"
 rsync -a --exclude='.git' --exclude='__pycache__' --exclude='.pytest_cache' \
   --exclude='.test-tmp' --exclude='.vs' --exclude='dist' --exclude='build' \
@@ -51,34 +51,34 @@ Expected: top-level listing shows `vulnclaw/  tests/  pyproject.toml  README.md 
 
 Run:
 ```bash
-cd /c/Users/jo/github/clawbot && git init -q && git add -A && git commit -q -m "chore: seed ClawBot from VulnClaw working tree" && git branch --show-current
+cd /c/Users/jo/github/vulnbot && git init -q && git add -A && git commit -q -m "chore: seed VulnBot from VulnClaw working tree" && git branch --show-current
 ```
 Expected: prints `master` or `main`; one commit exists.
 
 ---
 
-## Task 2: Mechanical package rename vulnclaw -> clawbot
+## Task 2: Mechanical package rename vulnclaw -> vulnbot
 
 **Files:**
-- Modify: every `*.py` under `clawbot/` repo (import strings), `pyproject.toml`, rename dir `vulnclaw/ -> clawbot/`
+- Modify: every `*.py` under `vulnbot/` repo (import strings), `pyproject.toml`, rename dir `vulnclaw/ -> vulnbot/`
 
 - [ ] **Step 1: Rename the package directory**
 
 Run:
 ```bash
-cd /c/Users/jo/github/clawbot && git mv vulnclaw clawbot && ls clawbot/__init__.py
+cd /c/Users/jo/github/vulnbot && git mv vulnclaw vulnbot && ls vulnbot/__init__.py
 ```
-Expected: `clawbot/__init__.py` exists.
+Expected: `vulnbot/__init__.py` exists.
 
 - [ ] **Step 2: Rewrite import + string references**
 
 Run (covers `from vulnclaw`, `import vulnclaw`, `vulnclaw.`, the env var, and the config dir):
 ```bash
-cd /c/Users/jo/github/clawbot
+cd /c/Users/jo/github/vulnbot
 grep -rl --include='*.py' --include='*.toml' --include='*.md' 'vulnclaw\|VulnClaw\|VULNCLAW' . | while read -r f; do
-  sed -i 's/from vulnclaw/from clawbot/g; s/import vulnclaw/import clawbot/g; s/\bvulnclaw\./clawbot./g; s/VULNCLAW_CONFIG_DIR/CLAWBOT_CONFIG_DIR/g; s/\.vulnclaw\b/.clawbot/g' "$f"
+  sed -i 's/from vulnclaw/from vulnbot/g; s/import vulnclaw/import vulnbot/g; s/\bvulnclaw\./vulnbot./g; s/VULNCLAW_CONFIG_DIR/VULNBOT_CONFIG_DIR/g; s/\.vulnclaw\b/.vulnbot/g' "$f"
 done
-grep -rn 'from vulnclaw\|import vulnclaw\|vulnclaw\.' --include='*.py' clawbot | head
+grep -rn 'from vulnclaw\|import vulnclaw\|vulnclaw\.' --include='*.py' vulnbot | head
 ```
 Expected: final grep prints nothing (no residual code references).
 
@@ -87,28 +87,28 @@ Expected: final grep prints nothing (no residual code references).
 Edit `pyproject.toml`:
 ```toml
 [project]
-name = "clawbot"
+name = "vulnbot"
 # ...
 [project.scripts]
-clawbot = "clawbot.cli.main:app"
+vulnbot = "vulnbot.cli.main:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["clawbot"]
+packages = ["vulnbot"]
 ```
-Also update `[tool.hatch.build.targets.sdist] include` entry `/vulnclaw` -> `/clawbot`.
+Also update `[tool.hatch.build.targets.sdist] include` entry `/vulnclaw` -> `/vulnbot`.
 
 - [ ] **Step 4: Update the config dir constant**
 
-In `clawbot/config/settings.py`, confirm Step 2 produced:
+In `vulnbot/config/settings.py`, confirm Step 2 produced:
 ```python
-CONFIG_DIR = Path(os.environ.get("CLAWBOT_CONFIG_DIR", str(Path.home() / ".clawbot")))
+CONFIG_DIR = Path(os.environ.get("VULNBOT_CONFIG_DIR", str(Path.home() / ".vulnbot")))
 ```
 If not, edit it to match.
 
 - [ ] **Step 5: Commit the rename**
 
 ```bash
-cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "refactor: rename package vulnclaw -> clawbot" && echo ok
+cd /c/Users/jo/github/vulnbot && git add -A && git commit -q -m "refactor: rename package vulnclaw -> vulnbot" && echo ok
 ```
 Expected: `ok`.
 
@@ -122,10 +122,10 @@ Expected: `ok`.
 
 Run (PowerShell tool):
 ```powershell
-cd C:\Users\jo\github\clawbot
+cd C:\Users\jo\github\vulnbot
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -q -e ".[dev]"
-.\.venv\Scripts\python.exe -c "import clawbot; from clawbot.cli.main import app; print('import ok')"
+.\.venv\Scripts\python.exe -c "import vulnbot; from vulnbot.cli.main import app; print('import ok')"
 ```
 Expected: `import ok`.
 
@@ -133,23 +133,23 @@ Expected: `import ok`.
 
 Run:
 ```powershell
-cd C:\Users\jo\github\clawbot
+cd C:\Users\jo\github\vulnbot
 .\.venv\Scripts\python.exe -m pytest -q
 ```
-Expected: same pass count as VulnClaw upstream (no import errors from the rename). If any test hard-codes `vulnclaw` paths/config dir, fix those tests to `clawbot` and note it.
+Expected: same pass count as VulnClaw upstream (no import errors from the rename). If any test hard-codes `vulnclaw` paths/config dir, fix those tests to `vulnbot` and note it.
 
 - [ ] **Step 3: Verify the CLI entrypoint**
 
 Run:
 ```powershell
-.\.venv\Scripts\clawbot.exe --help
+.\.venv\Scripts\vulnbot.exe --help
 ```
-Expected: typer help text renders with `clawbot` as the program name.
+Expected: typer help text renders with `vulnbot` as the program name.
 
 - [ ] **Step 4: Commit any test fixups**
 
 ```bash
-cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "test: fix residual vulnclaw references after rename" && echo ok || echo "nothing to commit"
+cd /c/Users/jo/github/vulnbot && git add -A && git commit -q -m "test: fix residual vulnclaw references after rename" && echo ok || echo "nothing to commit"
 ```
 
 ---
@@ -162,16 +162,16 @@ cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "test: fix resid
 
 - [ ] **Step 1: Write NOTICE**
 
-Create `C:\Users\jo\github\clawbot\NOTICE`:
+Create `C:\Users\jo\github\vulnbot\NOTICE`:
 ```
-ClawBot
+VulnBot
 =======
-ClawBot is a derivative work combining two MIT-licensed projects:
+VulnBot is a derivative work combining two MIT-licensed projects:
 
   VulnClaw  — Copyright (c) UncleC   — https://github.com/Unclecheng-li/VulnClaw
   HackBot   — Copyright (c) Yashab Alam — https://github.com/yashab-cyber/hackbot
 
-ClawBot uses VulnClaw as its base (agent core, MCP toolchain, skills, CLI/TUI/web)
+VulnBot uses VulnClaw as its base (agent core, MCP toolchain, skills, CLI/TUI/web)
 and ports selected intelligence modules from HackBot (CVE, OSINT, topology,
 compliance/MITRE, findings scoring, remediation, PDF reporting).
 
@@ -183,7 +183,7 @@ Append both upstream LICENSE texts under this header (read `VulnClaw/LICENSE` an
 
 Insert after the badges:
 ```markdown
-> **ClawBot** merges [VulnClaw](https://github.com/Unclecheng-li/VulnClaw) (base)
+> **VulnBot** merges [VulnClaw](https://github.com/Unclecheng-li/VulnClaw) (base)
 > and intelligence modules from [HackBot](https://github.com/yashab-cyber/hackbot).
 > Both are MIT-licensed; see [`NOTICE`](NOTICE).
 ```
@@ -191,7 +191,7 @@ Insert after the badges:
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "docs: add NOTICE and dual upstream attribution" && echo ok
+cd /c/Users/jo/github/vulnbot && git add -A && git commit -q -m "docs: add NOTICE and dual upstream attribution" && echo ok
 ```
 
 ---
@@ -199,8 +199,8 @@ cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "docs: add NOTIC
 ## Task 5: Intel subpackage skeleton + tool registry
 
 **Files:**
-- Create: `clawbot/intel/__init__.py`
-- Create: `clawbot/intel/tools.py`
+- Create: `vulnbot/intel/__init__.py`
+- Create: `vulnbot/intel/tools.py`
 - Test: `tests/intel/test_tool_plumbing.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -209,7 +209,7 @@ Create `tests/intel/test_tool_plumbing.py`:
 ```python
 import pytest
 
-from clawbot.intel.tools import INTEL_TOOL_NAMES, dispatch_intel_tool, intel_tool_schemas
+from vulnbot.intel.tools import INTEL_TOOL_NAMES, dispatch_intel_tool, intel_tool_schemas
 
 
 def test_schemas_expose_cve_lookup():
@@ -238,19 +238,19 @@ async def test_dispatch_cve_lookup_stub_is_structured():
 - [ ] **Step 2: Run it to confirm it fails**
 
 Run: `.\.venv\Scripts\python.exe -m pytest tests/intel/test_tool_plumbing.py -q`
-Expected: FAIL with `ModuleNotFoundError: No module named 'clawbot.intel'`.
+Expected: FAIL with `ModuleNotFoundError: No module named 'vulnbot.intel'`.
 
 - [ ] **Step 3: Create the subpackage marker**
 
-Create `clawbot/intel/__init__.py`:
+Create `vulnbot/intel/__init__.py`:
 ```python
-"""ClawBot intelligence modules ported from HackBot (CVE, OSINT, topology,
+"""VulnBot intelligence modules ported from HackBot (CVE, OSINT, topology,
 compliance, findings, remediation). Exposed to the agent as builtin tools."""
 ```
 
 - [ ] **Step 4: Implement the tool registry with a cve_lookup stub**
 
-Create `clawbot/intel/tools.py`:
+Create `vulnbot/intel/tools.py`:
 ```python
 """Intel tool schemas (OpenAI format) and name->dispatcher routing.
 
@@ -324,7 +324,7 @@ Expected: 4 passed.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "feat(intel): add intel subpackage + tool registry with cve_lookup stub" && echo ok
+cd /c/Users/jo/github/vulnbot && git add -A && git commit -q -m "feat(intel): add intel subpackage + tool registry with cve_lookup stub" && echo ok
 ```
 
 ---
@@ -332,15 +332,15 @@ cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "feat(intel): ad
 ## Task 6: Wire intel tools into the agent (two seams)
 
 **Files:**
-- Modify: `clawbot/agent/builtin_tools.py` (tool-list builder + `execute_mcp_tool` dispatch)
+- Modify: `vulnbot/agent/builtin_tools.py` (tool-list builder + `execute_mcp_tool` dispatch)
 - Test: `tests/intel/test_agent_seam.py`
 
 - [ ] **Step 1: Confirm the two seam points (already located against upstream)**
 
 The builder is `build_openai_tools(mcp_manager: Any) -> list[dict]` (def ~line 263, `return tools` ~line 479). The dispatcher is `execute_mcp_tool(agent, tool_name, args)` (def ~line 70). Re-run to confirm line numbers after the rename:
 ```bash
-cd /c/Users/jo/github/clawbot
-grep -n 'def build_openai_tools\|def execute_mcp_tool\|return tools' clawbot/agent/builtin_tools.py
+cd /c/Users/jo/github/vulnbot
+grep -n 'def build_openai_tools\|def execute_mcp_tool\|return tools' vulnbot/agent/builtin_tools.py
 ```
 Expected: prints `build_openai_tools`, `execute_mcp_tool`, and `return tools`.
 
@@ -350,7 +350,7 @@ Create `tests/intel/test_agent_seam.py`:
 ```python
 import pytest
 
-from clawbot.agent import builtin_tools as bt
+from vulnbot.agent import builtin_tools as bt
 
 
 def test_builder_includes_intel_schemas():
@@ -378,9 +378,9 @@ Expected: FAIL — `cve_lookup` not in builtin schema names.
 
 - [ ] **Step 4: Add seam A — extend the tool-list builder**
 
-In `clawbot/agent/builtin_tools.py`, add at the top of the module:
+In `vulnbot/agent/builtin_tools.py`, add at the top of the module:
 ```python
-from clawbot.intel.tools import (
+from vulnbot.intel.tools import (
     INTEL_TOOL_NAMES,
     dispatch_intel_tool,
     intel_tool_schemas,
@@ -412,7 +412,7 @@ Expected: prior pass count + the new intel tests, all green.
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "feat(agent): register intel tools in builtin tool list + dispatch" && echo ok
+cd /c/Users/jo/github/vulnbot && git add -A && git commit -q -m "feat(agent): register intel tools in builtin tool list + dispatch" && echo ok
 ```
 
 ---
@@ -420,15 +420,15 @@ cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "feat(agent): re
 ## Task 7: Constraint-policy classification for read-only intel tools
 
 **Files:**
-- Modify: `clawbot/agent/constraint_policy.py` (treat `READ_ONLY_INTEL_TOOLS` as safe)
+- Modify: `vulnbot/agent/constraint_policy.py` (treat `READ_ONLY_INTEL_TOOLS` as safe)
 - Test: `tests/intel/test_constraints.py`
 
 - [ ] **Step 1: Inspect how actions are inferred**
 
 Run:
 ```bash
-cd /c/Users/jo/github/clawbot
-grep -n 'def infer_tool_action\|def validate_tool_action' clawbot/agent/constraint_policy.py
+cd /c/Users/jo/github/vulnbot
+grep -n 'def infer_tool_action\|def validate_tool_action' vulnbot/agent/constraint_policy.py
 ```
 Expected: both function locations.
 
@@ -436,7 +436,7 @@ Expected: both function locations.
 
 Create `tests/intel/test_constraints.py`:
 ```python
-from clawbot.agent.constraint_policy import infer_tool_action
+from vulnbot.agent.constraint_policy import infer_tool_action
 
 
 def test_cve_lookup_is_passive():
@@ -456,7 +456,7 @@ Expected: FAIL (likely classified as unknown/active).
 
 In `infer_tool_action`, add an early branch using the shared set:
 ```python
-    from clawbot.intel.tools import READ_ONLY_INTEL_TOOLS
+    from vulnbot.intel.tools import READ_ONLY_INTEL_TOOLS
     if tool_name in READ_ONLY_INTEL_TOOLS:
         return "passive"  # use the project's passive/recon label
 ```
@@ -470,28 +470,28 @@ Expected: PASS.
 
 Run:
 ```powershell
-cd C:\Users\jo\github\clawbot
+cd C:\Users\jo\github\vulnbot
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m ruff check clawbot tests
+.\.venv\Scripts\python.exe -m ruff check vulnbot tests
 ```
 Expected: tests green; ruff clean (fix any import-order/lint nits).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /c/Users/jo/github/clawbot && git add -A && git commit -q -m "feat(agent): classify read-only intel tools as passive for constraint policy" && echo ok
+cd /c/Users/jo/github/vulnbot && git add -A && git commit -q -m "feat(agent): classify read-only intel tools as passive for constraint policy" && echo ok
 ```
 
 ---
 
 ## Subsequent plans (authored per-module at port time)
 
-Each reads the full HackBot source for the module, ports it to httpx + ClawBot
+Each reads the full HackBot source for the module, ports it to httpx + VulnBot
 conventions, replaces the corresponding entry in `_HANDLERS`, adds its tool
 schema(s) to `intel_tool_schemas()`, adds a methodology skill, and ships unit
 tests. They follow this plan's template:
 
-- **Plan 2 — CVE** (`hackbot/hackbot/core/cve.py` -> `clawbot/intel/cve.py`): real `cve_lookup`, NVD via httpx, `skills/.../cve-triage.md`.
+- **Plan 2 — CVE** (`hackbot/hackbot/core/cve.py` -> `vulnbot/intel/cve.py`): real `cve_lookup`, NVD via httpx, `skills/.../cve-triage.md`.
 - **Plan 3 — OSINT** (`core/osint.py` -> `intel/osint.py`): `osint_recon` tool, `[osint]` extra.
 - **Plan 4 — Topology** (`core/topology.py` -> `intel/topology.py`): `topology_build`, stdlib XML parse.
 - **Plan 5 — Findings** (`core/vulndb.py` logic -> `intel/findings.py`): `score_risk`, `annotate_compliance`, `diff_assessments` over `target_state`.

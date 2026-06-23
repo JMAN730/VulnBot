@@ -1,6 +1,6 @@
 import pytest
 
-from clawbot.intel.findings import (
+from vulnbot.intel.findings import (
     SEVERITY_WEIGHTS,
     annotate_compliance,
     diff_assessments,

@@ -1,6 +1,6 @@
 <div align="center">
 
-# ClawBot 🦞
+# VulnBot 🦞
 
 > *AI-Powered Penetration Testing CLI — Speak plainly, find real bugs.*
 
@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![OpenAI Compatible](https://img.shields.io/badge/API-OpenAI_Compatible-green)](https://platform.openai.com/)
 [![MCP](https://img.shields.io/badge/Toolchain-MCP-orange)](https://modelcontextprotocol.io/)
-[![PyPI](https://img.shields.io/badge/PyPI-v0.3.1-blueviolet)](https://pypi.org/project/clawbot/)
+[![PyPI](https://img.shields.io/badge/PyPI-v0.3.1-blueviolet)](https://pypi.org/project/vulnbot/)
 [![Security](https://img.shields.io/badge/Scope-Authorized_Only-red)](#-security-notice)
 <br>
 
@@ -24,7 +24,7 @@ Natural language input → automated "Recon → Vulnerability Discovery → Expl
 
 </div>
 
-> **ℹ️ About this build — ClawBot.** This package (`clawbot`) is a combined
+> **ℹ️ About this build — VulnBot.** This package (`vulnbot`) is a combined
 > product that merges [VulnClaw](https://github.com/Unclecheng-li/VulnClaw)
 > (base: agent core, MCP toolchain, skills, CLI/TUI/web) with intelligence
 > modules ported from [HackBot](https://github.com/yashab-cyber/hackbot)
@@ -41,7 +41,7 @@ Give it a natural language command and watch it run a full pentest:
 ```
 User:   "Run a penetration test on http://target.example.com"
 
-ClawBot executes:
+VulnBot executes:
   Round 1:  Recon → Fingerprinting, port scan, directory enumeration
   Round 2:  Vulnerability Discovery → Injection points, known CVEs, misconfigs
   Round 3:  Exploitation → PoC verification, access obtained
@@ -67,14 +67,14 @@ Suitable for authorized pentests, CTF competitions, security training, and red t
 - **Thinking Process Control** — `think on/off` toggles LLM reasoning visibility, off by default for clean output
 - **Sandbox Mode Prompting** — Unlocks AI security testing capabilities, designed for CTF and authorized pentest scenarios
 - **Auto Report & PoC** — Generates structured Markdown reports and runnable Python PoC scripts
-- **Web UI Mode** — `clawbot web` launches a local web interface for browser-based pentest operations, default `127.0.0.1:7788`
+- **Web UI Mode** — `vulnbot web` launches a local web interface for browser-based pentest operations, default `127.0.0.1:7788`
 - **Security Knowledge Base** — Includes the KB module and baseline seed data today; retrieval augmentation is being integrated into the main workflow incrementally
 
 ---
 
 ## 🧠 Intelligence Tools (merged from HackBot)
 
-ClawBot adds eight built-in **intel tools** the agent can call directly, ported
+VulnBot adds eight built-in **intel tools** the agent can call directly, ported
 from [HackBot](https://github.com/yashab-cyber/hackbot) and rewritten for the
 async/httpx stack. Read-only tools are classified as passive `recon` for the
 constraint policy.
@@ -90,9 +90,9 @@ constraint policy.
 | `remediation_advice` | Generate fix commands, config patches, and code snippets from a rule knowledge base |
 | `attack_map` | Map findings (and tool usage) to MITRE ATT&CK techniques; export an ATT&CK Navigator layer |
 
-Optional extras: `pip install clawbot[osint]` (dnspython for richer DNS),
-`pip install clawbot[pdf]` (reportlab for PDF report export via
-`clawbot report ... --pdf`).
+Optional extras: `pip install vulnbot[osint]` (dnspython for richer DNS),
+`pip install vulnbot[pdf]` (reportlab for PDF report export via
+`vulnbot report ... --pdf`).
 
 ---
 
@@ -102,9 +102,9 @@ Optional extras: `pip install clawbot[osint]` (dnspython for richer DNS),
 
 ```bash
 # Install from PyPI (recommended)
-pip install clawbot
+pip install vulnbot
 
-# Install from source (ClawBot is built on the VulnClaw tree)
+# Install from source (VulnBot is built on the VulnClaw tree)
 git clone https://github.com/Unclecheng-li/VulnClaw.git
 cd VulnClaw
 pip install -e .
@@ -114,32 +114,32 @@ pip install -e .
 
 ```bash
 # 1. Select provider (auto-fills Base URL and model name)
-clawbot config provider minimax   # or openai / deepseek / zhipu / moonshot / qwen / siliconflow
+vulnbot config provider minimax   # or openai / deepseek / zhipu / moonshot / qwen / siliconflow
 
 # 1.2 (optional) custom Base URL or model name
-clawbot config set llm.base_url https://your-own-api.example.com/v1
-clawbot config set llm.model your-model-name
+vulnbot config set llm.base_url https://your-own-api.example.com/v1
+vulnbot config set llm.model your-model-name
 
 # 2. Set API Key
-clawbot config set llm.api_key sk-your-key-here
+vulnbot config set llm.api_key sk-your-key-here
 
 # 3. Default: open the original CLI / REPL
-clawbot
+vulnbot
 
 # 4. Optional: open the TUI workbench
-clawbot tui
+vulnbot tui
 ```
 
 ### Environment Check
 
 ```bash
-clawbot doctor
+vulnbot doctor
 ```
 
 Sample output:
 
 ```
-🦞 ClawBot Environment Check
+🦞 VulnBot Environment Check
 
   Python: 3.14.4
   Node.js: v24.14.1
@@ -157,21 +157,21 @@ MCP Services:
   memory: enabled [P0]
   ...
 
-✅ Ready. Run clawbot to start.
+✅ Ready. Run vulnbot to start.
 ```
 
 ---
 
 ## CLI Command Reference
 
-Run `clawbot --help` to see all available commands:
+Run `vulnbot --help` to see all available commands:
 
 ```bash
-$ clawbot --help
+$ vulnbot --help
 
-🦞 ClawBot — AI-powered penetration testing CLI
+🦞 VulnBot — AI-powered penetration testing CLI
 
- Usage: clawbot [OPTIONS] COMMAND [ARGS]...
+ Usage: vulnbot [OPTIONS] COMMAND [ARGS]...
 
  Options:
    --version  Show version and exit.
@@ -196,34 +196,34 @@ $ clawbot --help
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `clawbot` | Open the original CLI / REPL by default | `clawbot` |
-| `clawbot tui` | Explicitly open the terminal UI workbench | `clawbot tui` / `clawbot tui --target target.com` |
-| `clawbot repl` | Start the classic REPL interactive shell | `clawbot repl` |
-| `clawbot run <target>` | Full pentest in one shot | `clawbot run 192.168.1.1` |
-| `clawbot persistent <target>` | Persistent pentesting | `clawbot persistent 192.168.1.1` |
-| `clawbot recon <target>` | Reconnaissance only | `clawbot recon target.com` |
-| `clawbot scan <target>` | Vulnerability scanning | `clawbot scan target.com --ports 80,443` |
-| `clawbot exploit <target>` | Exploitation phase | `clawbot exploit target.com --cve CVE-2024-1234` |
-| `clawbot report <session>` | Generate report from session | `clawbot report session_xxx.json` |
-| `clawbot config set <key> <value>` | Set a config value | `clawbot config set llm.api_key sk-xxx` |
-| `clawbot config get <key>` | View a config value | `clawbot config get llm.model` |
-| `clawbot config list` | List all config | `clawbot config list` |
-| `clawbot config provider <name>` | Switch LLM provider | `clawbot config provider deepseek` |
-| `clawbot init` | Initialize config files | `clawbot init` |
-| `clawbot doctor` | Check runtime environment | `clawbot doctor` |
-| `clawbot web` | Launch local Web UI | `clawbot web` / `clawbot web --port 8080` |
+| `vulnbot` | Open the original CLI / REPL by default | `vulnbot` |
+| `vulnbot tui` | Explicitly open the terminal UI workbench | `vulnbot tui` / `vulnbot tui --target target.com` |
+| `vulnbot repl` | Start the classic REPL interactive shell | `vulnbot repl` |
+| `vulnbot run <target>` | Full pentest in one shot | `vulnbot run 192.168.1.1` |
+| `vulnbot persistent <target>` | Persistent pentesting | `vulnbot persistent 192.168.1.1` |
+| `vulnbot recon <target>` | Reconnaissance only | `vulnbot recon target.com` |
+| `vulnbot scan <target>` | Vulnerability scanning | `vulnbot scan target.com --ports 80,443` |
+| `vulnbot exploit <target>` | Exploitation phase | `vulnbot exploit target.com --cve CVE-2024-1234` |
+| `vulnbot report <session>` | Generate report from session | `vulnbot report session_xxx.json` |
+| `vulnbot config set <key> <value>` | Set a config value | `vulnbot config set llm.api_key sk-xxx` |
+| `vulnbot config get <key>` | View a config value | `vulnbot config get llm.model` |
+| `vulnbot config list` | List all config | `vulnbot config list` |
+| `vulnbot config provider <name>` | Switch LLM provider | `vulnbot config provider deepseek` |
+| `vulnbot init` | Initialize config files | `vulnbot init` |
+| `vulnbot doctor` | Check runtime environment | `vulnbot doctor` |
+| `vulnbot web` | Launch local Web UI | `vulnbot web` / `vulnbot web --port 8080` |
 
 ### TUI Workbench
 
-`clawbot tui` is the optional terminal UI workbench entry. It shows the authorized target, check mode, runtime overview, safety boundary, command preview, target history, report entry, and inline environment diagnostics before a task starts.
+`vulnbot tui` is the optional terminal UI workbench entry. It shows the authorized target, check mode, runtime overview, safety boundary, command preview, target history, report entry, and inline environment diagnostics before a task starts.
 
 ```bash
-clawbot tui
-clawbot tui --target https://target.example --mode quick --only-port 443
-clawbot tui --dry-run --target https://target.example --mode deep --only-path /admin
+vulnbot tui
+vulnbot tui --target https://target.example --mode quick --only-port 443
+vulnbot tui --dry-run --target https://target.example --mode deep --only-path /admin
 ```
 
-The default `clawbot` command still opens the original CLI / REPL. The TUI opens only when users explicitly run `clawbot tui`.
+The default `vulnbot` command still opens the original CLI / REPL. The TUI opens only when users explicitly run `vulnbot tui`.
 The runtime overview reads the selected target's snapshots, finding counts, persisted constraints, and blocked constraint violations so users can confirm context before continuing.
 The TUI "Set testing scope" flow can edit allowed actions and blocked actions directly, for example allowing only `recon,scan` or blocking `exploit,post_exploitation`.
 
@@ -231,13 +231,13 @@ The TUI "Set testing scope" flow can edit allowed actions and blocked actions di
 
 ```bash
 # List all providers and switch
-clawbot config provider --list    # list all available providers
-clawbot config provider minimax   # switch to MiniMax
+vulnbot config provider --list    # list all available providers
+vulnbot config provider minimax   # switch to MiniMax
 
 # Manual setup (custom mode)
-clawbot config set llm.base_url https://your-api.com/v1
-clawbot config set llm.model your-model-name
-clawbot config set llm.api_key sk-your-key
+vulnbot config set llm.base_url https://your-api.com/v1
+vulnbot config set llm.model your-model-name
+vulnbot config set llm.api_key sk-your-key
 ```
 
 ---
@@ -247,13 +247,13 @@ clawbot config set llm.api_key sk-your-key
 ### Mode 1: Original CLI / REPL Interactive Mode (Default)
 
 ```bash
-$ clawbot
+$ vulnbot
 ```
 
 No-args startup opens the original 🦞 interactive shell for natural-language use:
 
 ```text
-🦞 clawbot> pentest 192.168.1.100 — this is my authorized lab
+🦞 vulnbot> pentest 192.168.1.100 — this is my authorized lab
 
 [*] Entering autonomous pentest mode. Press Ctrl+C to interrupt at any time.
 ── Round 1 ──
@@ -264,13 +264,13 @@ No-args startup opens the original 🦞 interactive shell for natural-language u
 ### Mode 2: TUI Workbench (Explicit)
 
 ```bash
-$ clawbot tui
+$ vulnbot tui
 ```
 
 The TUI shows target, mode, runtime overview, and safety boundary before launching a task:
 
 ```text
-ClawBot TUI Workbench
+VulnBot TUI Workbench
 
 Authorized target    https://example.com
 Check mode           Quick recon / recon
@@ -287,25 +287,25 @@ Safety boundary      only port 443, block exploit/persistent/post_exploitation
 Common launch examples:
 
 ```bash
-clawbot tui
-clawbot tui --target https://target.example --mode quick --only-port 443
-clawbot tui --dry-run --target https://target.example --mode deep --only-path /admin
+vulnbot tui
+vulnbot tui --target https://target.example --mode quick --only-port 443
+vulnbot tui --dry-run --target https://target.example --mode deep --only-path /admin
 ```
 
 Menu item 3, "Set testing scope", edits host, port, path, exclusions, allowed actions, and blocked actions. These boundaries are shown in the pre-launch confirmation and passed into the actual task command.
-Menu item 7, "Environment diagnostics", shows Python, Node/npx/uvx/nmap, LLM configuration, and MCP service/tool summaries inside the TUI. Run `clawbot doctor` only when you need the full details.
+Menu item 7, "Environment diagnostics", shows Python, Node/npx/uvx/nmap, LLM configuration, and MCP service/tool summaries inside the TUI. Run `vulnbot doctor` only when you need the full details.
 Menu item 8, "Model/API settings", switches Provider, Base URL, Model, and API Key directly in the workbench. Saved changes are used by the current TUI session immediately.
 
 ### Mode 3: Classic REPL Subcommand
 
 ```bash
-$ clawbot repl
+$ vulnbot repl
 ```
 
 Enter the classic 🦞 interactive shell and chat in natural language:
 
 ```
-🦞 clawbot> pentest 192.168.1.100 — this is my authorized lab
+🦞 vulnbot> pentest 192.168.1.100 — this is my authorized lab
 
 [*] Entering autonomous pentest mode. Press Ctrl+C to interrupt at any time.
 ── Round 1 ──
@@ -336,11 +336,11 @@ Enter the classic 🦞 interactive shell and chat in natural language:
 | `persistent <host>` | Start persistent pentest on a target                   |
 | `clear`             | Clear current session                                  |
 | `help`              | Show help                                              |
-| `exit` / `quit` / `q` | Exit ClawBot                                       |
+| `exit` / `quit` / `q` | Exit VulnBot                                       |
 
 #### Autonomous Pentest Mode
 
-ClawBot auto-enters multi-round autonomous loop when it detects these keywords + a target:
+VulnBot auto-enters multi-round autonomous loop when it detects these keywords + a target:
 
 | Trigger               | Example                                             |
 | --------------------- | --------------------------------------------------- |
@@ -355,30 +355,30 @@ ClawBot auto-enters multi-round autonomous loop when it detects these keywords +
 
 ```bash
 # Full pentest in one shot
-clawbot run 192.168.1.100
+vulnbot run 192.168.1.100
 
 # Persistent pentesting (100 rounds/cycle × 10 cycles, auto-report)
-clawbot persistent 192.168.1.100
+vulnbot persistent 192.168.1.100
 
 # Custom cycle parameters
-clawbot persistent 192.168.1.100 --rounds 200 --cycles 5
+vulnbot persistent 192.168.1.100 --rounds 200 --cycles 5
 
 # Recon only
-clawbot recon 192.168.1.100
+vulnbot recon 192.168.1.100
 
 # Vulnerability scan (specify ports)
-clawbot scan 192.168.1.100 --ports 80,443,8080
+vulnbot scan 192.168.1.100 --ports 80,443,8080
 
 # Exploitation (specify CVE)
-clawbot exploit 192.168.1.100 --cve CVE-2024-1234 --cmd id
+vulnbot exploit 192.168.1.100 --cve CVE-2024-1234 --cmd id
 
 # Generate report
-clawbot report session.json
+vulnbot report session.json
 ```
 
 ### Mode 3: Persistent Pentest
 
-For long-running deep penetration. ClawBot runs in **cyclic loops**:
+For long-running deep penetration. VulnBot runs in **cyclic loops**:
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -399,18 +399,18 @@ For long-running deep penetration. ClawBot runs in **cyclic loops**:
 
 ```bash
 # CLI mode
-clawbot persistent 192.168.1.100              # default: 100 rounds/cycle × 10 cycles
-clawbot persistent 192.168.1.100 -r 200 -c 5  # 200 rounds/cycle × 5 cycles
-clawbot persistent 192.168.1.100 --no-report   # disable auto-report
+vulnbot persistent 192.168.1.100              # default: 100 rounds/cycle × 10 cycles
+vulnbot persistent 192.168.1.100 -r 200 -c 5  # 200 rounds/cycle × 5 cycles
+vulnbot persistent 192.168.1.100 --no-report   # disable auto-report
 
 # TUI mode
-clawbot tui --target 192.168.1.100 --mode continuous
+vulnbot tui --target 192.168.1.100 --mode continuous
 
 # REPL mode
-🦞 clawbot> target 192.168.1.100
-🦞 clawbot> persistent
+🦞 vulnbot> target 192.168.1.100
+🦞 vulnbot> persistent
 # or directly
-🦞 clawbot> persistent 192.168.1.100
+🦞 vulnbot> persistent 192.168.1.100
 ```
 
 ### Mode 4: Web UI
@@ -419,16 +419,16 @@ Operate the full pentest workflow through a browser — ideal for users who pref
 
 ```bash
 # Install Web dependencies
-pip install clawbot[web]
+pip install vulnbot[web]
 
 # Launch Web UI (default: 127.0.0.1:7788)
-clawbot web
+vulnbot web
 
 # Custom port
-clawbot web --port 8080
+vulnbot web --port 8080
 
 # Dry-run (validate launch info without starting the server)
-clawbot web --dry-run
+vulnbot web --dry-run
 ```
 
 Once launched, open `http://127.0.0.1:7788` in your browser.
@@ -439,11 +439,11 @@ Once launched, open `http://127.0.0.1:7788` in your browser.
 
 ## LLM Provider Configuration
 
-ClawBot supports all OpenAI-compatible APIs with 8 built-in provider presets:
+VulnBot supports all OpenAI-compatible APIs with 8 built-in provider presets:
 
 ```bash
-clawbot config provider --list    # list all providers
-clawbot config provider minimax   # one-command switch
+vulnbot config provider --list    # list all providers
+vulnbot config provider minimax   # one-command switch
 ```
 
 | Provider     | Command                  | Default Model          |
@@ -468,7 +468,7 @@ clawbot config provider minimax   # one-command switch
 
 ```
 ┌─────────────────────────────────────────────┐
-│                   ClawBot CLI                   │
+│                   VulnBot CLI                   │
 │  ┌─────────┐  ┌─────────┐  ┌────────────┐  │
 │  │ Natural  │  │  Task   │  │  Report    │  │
 │  │ Language │  │Orchestr.│  │ & PoC Gen  │  │
@@ -571,7 +571,7 @@ clawbot config provider minimax   # one-command switch
 
 Skills are auto-dispatched based on user input — no manual selection needed. Specialized skills include detailed methodology documents in `references/`, loadable via the `load_skill_reference` tool.
 
-`secknowledge-skill` integrates [`Pa55w0rd/secknowledge-skill`](https://github.com/Pa55w0rd/secknowledge-skill). All 38 upstream `references/` documents are included, plus ClawBot's `clawbot-ctf-src-routing.md` guide for CTF/SRC workflows. It is routed by strong signals such as `SRC`, vulnerability research, bug bounty, GAARM, OWASP LLM/ASI/WSTG, and Web+AI testing, then loads SQLi, XSS, RCE, SSRF, AI/MCP, Agent, risk-matrix, and methodology references on demand.
+`secknowledge-skill` integrates [`Pa55w0rd/secknowledge-skill`](https://github.com/Pa55w0rd/secknowledge-skill). All 38 upstream `references/` documents are included, plus VulnBot's `vulnbot-ctf-src-routing.md` guide for CTF/SRC workflows. It is routed by strong signals such as `SRC`, vulnerability research, bug bounty, GAARM, OWASP LLM/ASI/WSTG, and Web+AI testing, then loads SQLi, XSS, RCE, SSRF, AI/MCP, Agent, risk-matrix, and methodology references on demand.
 
 ### Built-in Encode/Decode & Crypto Tool (`crypto_decode`)
 
@@ -592,12 +592,12 @@ Registered as a built-in Agent tool, callable in any context — no more guessin
 ### CLI Configuration
 
 ```bash
-clawbot config list                          # view all settings
-clawbot config get llm.model                 # view single setting
-clawbot config set llm.api_key sk-xx         # set API key
-clawbot config set session.max_rounds 30     # set max autonomous rounds (default 15)
-clawbot config set session.stale_rounds_threshold 8  # set dead-loop threshold (default 5)
-clawbot config set session.show_thinking false  # hide thinking process (also in REPL: think off)
+vulnbot config list                          # view all settings
+vulnbot config get llm.model                 # view single setting
+vulnbot config set llm.api_key sk-xx         # set API key
+vulnbot config set session.max_rounds 30     # set max autonomous rounds (default 15)
+vulnbot config set session.stale_rounds_threshold 8  # set dead-loop threshold (default 5)
+vulnbot config set session.show_thinking false  # hide thinking process (also in REPL: think off)
 ```
 
 ### Configurable Options
@@ -611,7 +611,7 @@ clawbot config set session.show_thinking false  # hide thinking process (also in
 | `llm.temperature`                      | 0.1            | Sampling temperature                             |
 | `llm.max_tokens`                       | 4096           | Max output tokens per call                       |
 | `session.max_rounds`                    | 15             | Max rounds per autonomous pentest (10-50 recommended)|
-| `session.output_dir`                    | ./clawbot-output | Report output directory                    |
+| `session.output_dir`                    | ./vulnbot-output | Report output directory                    |
 | `session.report_format`                  | markdown       | Report format (markdown / html)                |
 | `session.poc_language`                  | python         | PoC generation language (python / bash)          |
 | `session.show_thinking`                 | false          | Show LLM reasoning (think tag content, default off)|
@@ -633,13 +633,13 @@ clawbot config set session.show_thinking false  # hide thinking process (also in
 
 Priority: **Environment Variables > Config File > Built-in Defaults**
 
-Config file location: `~/.clawbot/config.yaml`.
+Config file location: `~/.vulnbot/config.yaml`.
 
 ---
 
 ## Security Notice
 
-ClawBot is intended **solely for authorized security testing**. Before using this tool, ensure:
+VulnBot is intended **solely for authorized security testing**. Before using this tool, ensure:
 
 1. You have **explicit authorization** for the target system
 2. Scope has been **confirmed in writing** with the target owner
@@ -662,13 +662,13 @@ Connect with security enthusiasts to share, learn, and grow together.
 | Community Group | Developer Group |
 |:--:|:--:|
 | Join discussions and get the latest product updates and usage tips | Join us for open-source contributions and deep technical discussions |
-| ![ClawBot Community Group](assets/clawbot-community.jpg) | ![ClawBot Developer Group](assets/clawbot-developer-community.png) |
+| ![VulnBot Community Group](assets/vulnbot-community.jpg) | ![VulnBot Developer Group](assets/vulnbot-developer-community.png) |
 | **QQ Group: 954402631** | **QQ Group: 1065858551** |
 
 ---
 
 <div align="center">
 
-> 🦞 **ClawBot** — Every pentest should follow a process.
+> 🦞 **VulnBot** — Every pentest should follow a process.
 
 </div>

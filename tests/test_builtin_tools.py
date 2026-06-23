@@ -9,7 +9,7 @@ class DummyRuntime:
 class DummySession:
     def __init__(self, target="https://example.com"):
         self.target = target
-        from clawbot.agent.context import TaskConstraints
+        from vulnbot.agent.context import TaskConstraints
 
         self.task_constraints = TaskConstraints()
 
@@ -40,7 +40,7 @@ class DummyAgent:
 
 class TestBuiltinPythonExecute:
     async def test_safe_mode_blocks_network_access(self, monkeypatch, tmp_path):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         agent = DummyAgent()
         agent.config.safety.python_execute_mode = "safe"
@@ -56,7 +56,7 @@ class TestBuiltinPythonExecute:
         assert "safe mode blocked operation" in result
 
     async def test_lab_mode_blocks_subprocess(self, monkeypatch):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         agent = DummyAgent()
         agent.config.safety.python_execute_mode = "lab"
@@ -69,7 +69,7 @@ class TestBuiltinPythonExecute:
         assert "lab mode blocked operation" in result
 
     async def test_trusted_local_allows_basic_code(self, monkeypatch):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         agent = DummyAgent()
         agent.config.safety.python_execute_mode = "trusted-local"
@@ -82,15 +82,15 @@ class TestBuiltinPythonExecute:
         assert "ok" in result
 
     async def test_audit_writer_emits_jsonl(self, monkeypatch, tmp_path):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         agent = DummyAgent()
 
         monkeypatch.setattr(
-            "clawbot.config.settings.PYTHON_EXECUTE_AUDIT_FILE",
+            "vulnbot.config.settings.PYTHON_EXECUTE_AUDIT_FILE",
             tmp_path / "python_execute_audit.jsonl",
         )
-        monkeypatch.setattr("clawbot.config.settings.ensure_dirs", lambda: None)
+        monkeypatch.setattr("vulnbot.config.settings.ensure_dirs", lambda: None)
 
         builtin_tools._write_python_audit(
             agent,
@@ -110,7 +110,7 @@ class TestBuiltinPythonExecute:
 
 class TestBuiltinMcpExecution:
     async def test_execute_loads_secknowledge_reference(self):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         agent = DummyAgent()
         result = await builtin_tools.execute_mcp_tool(
@@ -126,7 +126,7 @@ class TestBuiltinMcpExecution:
         assert "injection" in result.lower()
 
     async def test_execute_mcp_tool_includes_structured_content_summary(self):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         class DummyMcpManager:
             async def call_tool(self, tool_name, args):
@@ -147,7 +147,7 @@ class TestBuiltinMcpExecution:
         assert '"status": "ok"' in result
 
     async def test_execute_fetch_blocks_tool_level_exploit_when_only_recon_allowed(self):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         class DummyMcpManager:
             async def call_tool(self, tool_name, args):
@@ -167,7 +167,7 @@ class TestBuiltinMcpExecution:
         assert "tool 'fetch'" in result
 
     async def test_execute_python_blocks_tool_level_exploit_when_only_recon_allowed(self):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         agent = DummyAgent()
         agent.session_state.task_constraints.allowed_actions = ["recon"]
@@ -182,7 +182,7 @@ class TestBuiltinMcpExecution:
         assert "tool 'python_execute'" in result
 
     async def test_execute_python_blocks_blocked_host(self):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         agent = DummyAgent()
         agent.session_state.task_constraints.blocked_hosts = ["example.com"]
@@ -196,7 +196,7 @@ class TestBuiltinMcpExecution:
         assert "Host example.com" in result
 
     async def test_execute_nmap_blocks_out_of_scope_port(self):
-        import clawbot.agent.builtin_tools as builtin_tools
+        import vulnbot.agent.builtin_tools as builtin_tools
 
         agent = DummyAgent()
         agent.session_state.task_constraints.allowed_ports = [443]

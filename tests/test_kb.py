@@ -1,4 +1,4 @@
-"""ClawBot Knowledge Base Module Tests — store.py + retriever.py + updater.py"""
+"""VulnBot Knowledge Base Module Tests — store.py + retriever.py + updater.py"""
 
 
 # ── store.py ─────────────────────────────────────────────────────────
@@ -8,14 +8,14 @@ class TestKnowledgeStore:
     """Test KnowledgeStore."""
 
     def test_init_creates_dirs(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         KnowledgeStore(store_dir=tmp_path)
         for category in ["cve", "techniques", "protocols", "tools", "payloads"]:
             assert (tmp_path / category).exists()
 
     def test_add_and_get_entry(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         store.add_entry(
@@ -33,14 +33,14 @@ class TestKnowledgeStore:
         assert entry["id"] == "CVE-2026-0001"
 
     def test_get_nonexistent_entry(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         entry = store.get_entry("cve", "CVE-9999-9999")
         assert entry is None
 
     def test_search_by_title(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         store.add_entry(
@@ -56,7 +56,7 @@ class TestKnowledgeStore:
         assert results[0]["title"] == "Nginx Buffer Overflow"
 
     def test_search_by_tags(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         store.add_entry(
@@ -71,7 +71,7 @@ class TestKnowledgeStore:
         assert len(results) >= 1
 
     def test_search_by_category(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         store.add_entry("cve", "CVE-2026-0001", {"title": "CVE Test", "tags": []})
@@ -80,7 +80,7 @@ class TestKnowledgeStore:
         assert all(r.get("_category") == "cve" for r in results)
 
     def test_list_categories(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         store.add_entry("cve", "CVE-2026-0001", {"title": "Test", "tags": []})
@@ -90,7 +90,7 @@ class TestKnowledgeStore:
         assert "tools" in categories
 
     def test_list_entries(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         store.add_entry("cve", "CVE-2026-0001", {"title": "Vuln 1", "tags": []})
@@ -99,7 +99,7 @@ class TestKnowledgeStore:
         assert len(entries) == 2
 
     def test_get_stats(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         store.add_entry("cve", "CVE-2026-0001", {"title": "Test", "tags": []})
@@ -109,7 +109,7 @@ class TestKnowledgeStore:
         assert stats["cve"] >= 1
 
     def test_file_persistence(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store1 = KnowledgeStore(store_dir=tmp_path)
         store1.add_entry("cve", "CVE-2026-0001", {"title": "Persistent", "tags": []})
@@ -120,7 +120,7 @@ class TestKnowledgeStore:
         assert entry["title"] == "Persistent"
 
     def test_index_file_created(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         store.add_entry("cve", "CVE-2026-0001", {"title": "Test", "tags": []})
@@ -134,8 +134,8 @@ class TestKnowledgeRetriever:
     """Test KnowledgeRetriever."""
 
     def _make_retriever(self, tmp_path):
-        from clawbot.kb.retriever import KnowledgeRetriever
-        from clawbot.kb.store import KnowledgeStore
+        from vulnbot.kb.retriever import KnowledgeRetriever
+        from vulnbot.kb.store import KnowledgeStore
 
         store = KnowledgeStore(store_dir=tmp_path)
         return KnowledgeRetriever(store=store)
@@ -264,8 +264,8 @@ class TestKnowledgeUpdater:
     """Test Knowledge seed/updater functionality."""
 
     def test_seed_knowledge_base(self, tmp_path):
-        from clawbot.kb.store import KnowledgeStore
-        from clawbot.kb.updater import seed_knowledge_base
+        from vulnbot.kb.store import KnowledgeStore
+        from vulnbot.kb.updater import seed_knowledge_base
 
         store = KnowledgeStore(store_dir=tmp_path)
         result = seed_knowledge_base(store)

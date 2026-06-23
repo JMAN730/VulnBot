@@ -1,6 +1,6 @@
 import pytest
 
-from clawbot.intel.remediation import (
+from vulnbot.intel.remediation import (
     RemediationEngine,
     RemediationType,
     remediation_advice_tool,

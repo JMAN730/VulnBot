@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "clawbot"
+name = "vulnbot"
 version = "0.3.1"
 description = "AI-powered penetration testing CLI tool for cybersecurity professionals"
 readme = "README.md"
@@ -74,7 +74,7 @@ Repository = "https://github.com/Unclecheng-li/VulnClaw"
 Issues = "https://github.com/Unclecheng-li/VulnClaw/issues"
 
 [project.scripts]
-clawbot = "clawbot.cli.main:app"
+vulnbot = "vulnbot.cli.main:app"
 
 [tool.hatch.build]
 exclude = [
@@ -89,11 +89,11 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["clawbot"]
+packages = ["vulnbot"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/clawbot",
+    "/vulnbot",
     "/frontend",
     "/tests",
     "/scripts",

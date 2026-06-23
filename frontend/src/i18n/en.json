@@ -1,5 +1,5 @@
 {
-  "brand.name": "ClawBot",
+  "brand.name": "VulnBot",
   "brand.tagline": "Attack surface mapping",
 
   "nav.scan": "Scan",
@@ -47,7 +47,7 @@
   "topbar.idle": "Idle",
 
   "shell.backend_unavailable": "Backend unavailable",
-  "shell.backend_hint": "Start `clawbot web` and open the local address to load the live console.",
+  "shell.backend_hint": "Start `vulnbot web` and open the local address to load the live console.",
   "shell.retry": "Retry",
 
   "banner.active_scan": "Active scan",
@@ -78,16 +78,16 @@
   "toast.task_stopped": "Task stopped",
   "toast.task_stopped_copy": "Saved state and reports remain available.",
   "toast.stop_sent": "Stop request sent",
-  "toast.stop_sent_copy": "ClawBot is ending the current task.",
+  "toast.stop_sent_copy": "VulnBot is ending the current task.",
 
   "confirm.stop_scan_title": "Stop current scan?",
   "confirm.stop_scan_copy": "Stopping will end the current task, but saved state and reports will remain available.",
   "confirm.stop_task_label": "Stop task",
 
-  "error.unreachable": "Unable to reach the ClawBot backend API. Start `clawbot web` and reconnect.",
+  "error.unreachable": "Unable to reach the VulnBot backend API. Start `vulnbot web` and reconnect.",
   "error.request_failed": "Request failed ({status}): {detail}",
   "error.request_failed_simple": "Request failed ({status}). Try again or open advanced diagnostics.",
-  "error.non_json": "The backend API returned non-JSON content. Confirm the backend was started with `clawbot web`.",
+  "error.non_json": "The backend API returned non-JSON content. Confirm the backend was started with `vulnbot web`.",
   "error.failed_to_start": "Failed to start task",
   "error.invalid_port": "Invalid port format",
   "error.save_failed": "Save failed",
@@ -181,7 +181,7 @@
   "boundary.default_scope": "Default scope",
   "boundary.auto_scope": "Auto scope",
 
-  "home.welcome": "Welcome to ClawBot",
+  "home.welcome": "Welcome to VulnBot",
   "home.tagline": "Attack surface mapping",
   "home.scan": "Scan",
   "home.starting": "Starting",
@@ -516,7 +516,7 @@
 
   "settings.output_dir": "Output directory",
   "settings.reports_note": "Reports",
-  "settings.reports_note_text": "If not overridden, reports are written under the ClawBot sessions report directory.",
+  "settings.reports_note_text": "If not overridden, reports are written under the VulnBot sessions report directory.",
 
   "settings.enable_local_script": "Enable local script helper",
   "settings.record_script_audit": "Record local script audit",
@@ -576,7 +576,7 @@
   "console.continuous_only": "Continuous only",
 
   "error_boundary.kicker": "UI guard",
-  "error_boundary.title": "ClawBot UI hit a rendering error",
+  "error_boundary.title": "VulnBot UI hit a rendering error",
   "error_boundary.copy": "Saved targets, reports, and task history remain intact. Reload the UI, then continue from History or Reports.",
   "error_boundary.reload": "Reload UI",
   "error_boundary.technical": "Technical error",

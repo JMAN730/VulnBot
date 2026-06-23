@@ -1,6 +1,6 @@
 import pytest
 
-from clawbot.report import pdf_exporter
+from vulnbot.report import pdf_exporter
 
 SAMPLE_MD = """# Security Assessment
 
@@ -37,7 +37,7 @@ Host: example.com
 @pytest.mark.skipif(not pdf_exporter._HAVE_REPORTLAB, reason="reportlab ([pdf] extra) not installed")
 def test_export_pdf_writes_valid_file(tmp_path):
     out = tmp_path / "report.pdf"
-    result = pdf_exporter.export_pdf(SAMPLE_MD, out, title="ClawBot Report")
+    result = pdf_exporter.export_pdf(SAMPLE_MD, out, title="VulnBot Report")
     assert result == out
     assert out.exists()
     data = out.read_bytes()
@@ -54,7 +54,7 @@ def test_export_pdf_creates_parent_dirs(tmp_path):
 
 def test_export_pdf_without_reportlab_raises(monkeypatch):
     monkeypatch.setattr(pdf_exporter, "_HAVE_REPORTLAB", False)
-    with pytest.raises(RuntimeError, match=r"clawbot\[pdf\]"):
+    with pytest.raises(RuntimeError, match=r"vulnbot\[pdf\]"):
         pdf_exporter.export_pdf("# x", "/tmp/should-not-exist.pdf")
 
 

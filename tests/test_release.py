@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def test_package_version_matches_pyproject() -> None:
-    import clawbot
+    import vulnbot
 
     pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
     version_line = next(
@@ -13,4 +13,4 @@ def test_package_version_matches_pyproject() -> None:
         if line.startswith("version = ")
     )
     pyproject_version = version_line.split('"')[1]
-    assert clawbot.__version__ == pyproject_version
+    assert vulnbot.__version__ == pyproject_version

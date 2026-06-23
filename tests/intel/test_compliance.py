@@ -1,6 +1,6 @@
 import pytest
 
-from clawbot.intel.compliance import (
+from vulnbot.intel.compliance import (
     compliance_map_tool,
     format_report,
     list_frameworks,

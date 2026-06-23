@@ -1,4 +1,4 @@
-"""ClawBot CLI module tests for main.py."""
+"""VulnBot CLI module tests for main.py."""
 
 import io
 
@@ -19,64 +19,64 @@ class TestCLI:
         return CliRunner()
 
     def test_cli_help(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "ClawBot" in result.output or "clawbot" in result.output.lower()
+        assert "VulnBot" in result.output or "vulnbot" in result.output.lower()
         assert "TUI" in result.output
 
     def test_cli_version(self, runner):
-        from clawbot import __version__
-        from clawbot.cli.main import app
+        from vulnbot import __version__
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["--version"])
         # Typer may return exit code 0 or 2 depending on version
         assert __version__ in result.output or result.exit_code in (0, 2)
 
     def test_cli_init(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["init"])
         # Should not crash
         assert result.exit_code == 0
-        assert "clawbot" in result.output
-        assert "clawbot tui" in result.output
+        assert "vulnbot" in result.output
+        assert "vulnbot tui" in result.output
 
     def test_cli_doctor(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["doctor"])
         # Should not crash
         assert result.exit_code == 0
         assert "Registered:" in result.output
         assert "Tools:" in result.output
-        assert "clawbot tui" in result.output or "Set an API key first" in result.output
+        assert "vulnbot tui" in result.output or "Set an API key first" in result.output
 
     def test_cli_config_list(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["config", "list"])
         # Should not crash
         assert result.exit_code == 0
 
     def test_cli_config_provider_list(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["config", "provider", "--list"])
         # Should show available providers
         assert result.exit_code == 0
 
     def test_cli_config_provider_set(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["config", "provider", "deepseek"])
         # Should not crash
         assert result.exit_code == 0
 
     def test_cli_kb_update(self, runner, monkeypatch, tmp_path):
-        import clawbot.kb.store as kb_store
-        from clawbot.cli.main import app
+        import vulnbot.kb.store as kb_store
+        from vulnbot.cli.main import app
 
         monkeypatch.setattr(kb_store, "KB_DIR", tmp_path)
         result = runner.invoke(app, ["kb", "update"])
@@ -85,7 +85,7 @@ class TestCLI:
         assert (tmp_path / "index.json").exists()
 
     def test_cli_doctor_reports_registered_tools(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["doctor"])
         assert result.exit_code == 0
@@ -93,10 +93,10 @@ class TestCLI:
         assert "Tools:" in result.output
 
     def test_recon_resumes_target_state(self, runner, monkeypatch, tmp_path):
-        import clawbot.orchestrator as orchestrator_mod
-        import clawbot.target_state.store as store_mod
-        from clawbot.agent.context import PentestPhase, SessionState
-        from clawbot.cli.main import app
+        import vulnbot.orchestrator as orchestrator_mod
+        import vulnbot.target_state.store as store_mod
+        from vulnbot.agent.context import PentestPhase, SessionState
+        from vulnbot.cli.main import app
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path / "targets")
         state = SessionState(target="https://example.com")
@@ -118,9 +118,9 @@ class TestCLI:
         assert calls == [("https://example.com", None)]
 
     def test_recon_no_resume_skips_target_state(self, runner, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        from clawbot.agent.context import PentestPhase, SessionState
-        from clawbot.cli.main import app
+        import vulnbot.target_state.store as store_mod
+        from vulnbot.agent.context import PentestPhase, SessionState
+        from vulnbot.cli.main import app
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path / "targets")
         state = SessionState(target="https://example.com")
@@ -132,14 +132,14 @@ class TestCLI:
         assert result.output is not None
 
     def test_repl_persistent_explicit_target_restores_history(self, runner, monkeypatch):
-        import clawbot.agent.core as agent_core
-        import clawbot.cli.main as cli_main
-        import clawbot.mcp.lifecycle as lifecycle_mod
-        from clawbot.agent.context import PentestPhase, SessionState
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.agent.core as agent_core
+        import vulnbot.cli.main as cli_main
+        import vulnbot.mcp.lifecycle as lifecycle_mod
+        from vulnbot.agent.context import PentestPhase, SessionState
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
 
         old_state = SessionState(target="https://old.example")
@@ -213,9 +213,9 @@ class TestCLI:
         assert observed["phase"] == PentestPhase.EXPLOITATION.value
 
     def test_report_target_mode(self, runner, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.cli.main import app
+        import vulnbot.target_state.store as store_mod
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.cli.main import app
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path / "targets")
         state = SessionState(target="https://example.com")
@@ -230,11 +230,11 @@ class TestCLI:
         assert "Report generated" in result.output or result.output
 
     def test_report_target_mode_pdf(self, runner, monkeypatch, tmp_path):
-        import clawbot.config.settings as settings_mod
-        import clawbot.target_state.store as store_mod
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.cli.main import app
-        from clawbot.report import pdf_exporter
+        import vulnbot.config.settings as settings_mod
+        import vulnbot.target_state.store as store_mod
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.cli.main import app
+        from vulnbot.report import pdf_exporter
 
         sessions = tmp_path / "sessions"
         sessions.mkdir()
@@ -257,15 +257,15 @@ class TestCLI:
             assert pdfs and pdfs[0].read_bytes()[:5] == b"%PDF-"
         else:
             assert result.exit_code == 1
-            assert "clawbot[pdf]" in result.output
+            assert "vulnbot[pdf]" in result.output
 
     def test_repl_report_command_uses_current_session_or_target_state(self, runner, monkeypatch):
-        import clawbot.cli.main as cli_main
-        import clawbot.mcp.lifecycle as lifecycle_mod
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.main as cli_main
+        import vulnbot.mcp.lifecycle as lifecycle_mod
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
 
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
@@ -288,11 +288,11 @@ class TestCLI:
         assert "report.md" in result.output
 
     def test_run_uses_shared_orchestrator(self, runner, monkeypatch):
-        import clawbot.cli.main as cli_main
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
 
@@ -309,11 +309,11 @@ class TestCLI:
         assert called == [("run", "https://example.com")]
 
     def test_run_cli_constraints_are_appended_to_prompt(self, runner, monkeypatch):
-        import clawbot.cli.main as cli_main
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
 
@@ -350,11 +350,11 @@ class TestCLI:
         assert "Only test path /admin" in prompts[0]
 
     def test_run_cli_blocked_host_and_path_are_appended_to_prompt(self, runner, monkeypatch):
-        import clawbot.cli.main as cli_main
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
 
@@ -388,11 +388,11 @@ class TestCLI:
         assert "Blocked path /internal" in prompts[0]
 
     def test_cli_blocks_command_when_allowed_actions_conflict(self, runner, monkeypatch):
-        import clawbot.cli.main as cli_main
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
         monkeypatch.setattr(
@@ -405,11 +405,11 @@ class TestCLI:
         assert result.exit_code == 0
 
     def test_cli_blocks_command_with_explicit_allow_actions_option(self, runner):
-        import clawbot.cli.main as cli_main
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
@@ -419,11 +419,11 @@ class TestCLI:
         assert result.exit_code == 0
 
     def test_persistent_command_uses_correct_cycle_callback(self, runner, monkeypatch):
-        import clawbot.cli.main as cli_main
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
 
@@ -451,14 +451,14 @@ class TestCLI:
         assert result.exit_code == 0
 
     def test_repl_persistent_interrupt_generates_final_report(self, runner, monkeypatch):
-        import clawbot.agent.core as agent_core
-        import clawbot.cli.main as cli_main
-        import clawbot.mcp.lifecycle as lifecycle_mod
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.cli.main import app
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.agent.core as agent_core
+        import vulnbot.cli.main as cli_main
+        import vulnbot.mcp.lifecycle as lifecycle_mod
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.cli.main import app
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
 
         monkeypatch.setattr(cli_main, "load_config", lambda: config)
@@ -506,9 +506,9 @@ class TestCLI:
         assert "final.md" in result.output
 
     def test_target_state_list_and_clear(self, runner, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        from clawbot.agent.context import SessionState
-        from clawbot.cli.main import app
+        import vulnbot.target_state.store as store_mod
+        from vulnbot.agent.context import SessionState
+        from vulnbot.cli.main import app
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path / "targets")
         state = SessionState(target="https://example.com")
@@ -523,9 +523,9 @@ class TestCLI:
         assert result_clear.output
 
     def test_target_state_preview_and_diff(self, runner, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.cli.main import app
+        import vulnbot.target_state.store as store_mod
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.cli.main import app
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path / "targets")
 
@@ -558,7 +558,7 @@ class TestCLI:
 
     @pytest.mark.asyncio
     async def test_repl_runner_executes_post_hook(self):
-        from clawbot.repl_runner import run_repl_call
+        from vulnbot.repl_runner import run_repl_call
 
         observed = []
 
@@ -574,7 +574,7 @@ class TestCLI:
         assert observed == ["call", "after:hello"]
 
     def test_cli_kb_info(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["kb", "info"])
         # kb info might not exist in all versions, just verify no crash
@@ -582,8 +582,8 @@ class TestCLI:
 
     def test_cli_no_args(self, runner, monkeypatch):
         """Running with no args should open the original CLI/REPL by default."""
-        import clawbot.cli.main as cli_main
-        from clawbot.cli.main import app
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
 
         called = []
         monkeypatch.setattr(cli_main, "_run_repl", lambda: called.append("repl"))
@@ -593,8 +593,8 @@ class TestCLI:
         assert called == ["repl"]
 
     def test_repl_command_starts_classic_repl(self, runner, monkeypatch):
-        import clawbot.cli.main as cli_main
-        from clawbot.cli.main import app
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
 
         called = []
         monkeypatch.setattr(cli_main, "_run_repl", lambda: called.append("repl"))
@@ -604,11 +604,11 @@ class TestCLI:
         assert called == ["repl"]
 
     def test_tui_once_renders_workbench(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["tui", "--once"])
         assert result.exit_code == 0
-        assert "ClawBot TUI" in result.output
+        assert "VulnBot TUI" in result.output
         assert "Authorized Target" in result.output
         assert "Run Overview" in result.output
         assert "No target selected" in result.output
@@ -616,8 +616,8 @@ class TestCLI:
         # Newer TUI uses slash commands instead of the old numeric menu.
 
     def test_tui_once_renders_target_overview(self, runner, monkeypatch):
-        import clawbot.cli.tui as tui_mod
-        from clawbot.cli.main import app
+        import vulnbot.cli.tui as tui_mod
+        from vulnbot.cli.main import app
 
         monkeypatch.setattr(
             tui_mod,
@@ -653,7 +653,7 @@ class TestCLI:
         assert "1 times" in result.output
 
     def test_tui_once_accepts_prefilled_target(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(
             app,
@@ -674,7 +674,7 @@ class TestCLI:
         assert "443" in result.output
 
     def test_tui_dry_run_renders_launch_summary(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(
             app,
@@ -699,21 +699,21 @@ class TestCLI:
         )
         assert result.exit_code == 0
         assert "Launch Summary" in result.output
-        assert "clawbot scan https://example.com" in result.output
+        assert "vulnbot scan https://example.com" in result.output
         assert "--only-port 443" in result.output
         assert "--only-path /admin" in result.output
         assert "--blocked-host staging.example.com" in result.output
 
     def test_tui_rejects_unknown_mode(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["tui", "--mode", "unknown", "--dry-run"])
         assert result.exit_code == 1
         assert "Unknown TUI mode" in result.output
 
     def test_tui_interactive_launch_builds_task_draft(self, runner, monkeypatch):
-        import clawbot.cli.tui as tui_mod
-        from clawbot.cli.main import app
+        import vulnbot.cli.tui as tui_mod
+        from vulnbot.cli.main import app
 
         launched = []
 
@@ -741,7 +741,7 @@ class TestCLI:
         assert launched[0].allow_actions == ("recon",)
 
     def test_tui_scope_prompt_updates_action_constraints(self, monkeypatch):
-        import clawbot.cli.tui as tui_mod
+        import vulnbot.cli.tui as tui_mod
 
         answers = iter(
             [
@@ -775,10 +775,10 @@ class TestCLI:
         assert "--block-actions exploit,post_exploitation" in draft.command_line
 
     def test_tui_runtime_diagnostic_panel_renders_environment_summary(self, monkeypatch):
-        import clawbot.cli.tui as tui_mod
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.tui as tui_mod
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.api_key = "test-key"
         config.llm.provider = "openai"
         config.llm.model = "gpt-test"
@@ -796,7 +796,7 @@ class TestCLI:
         def fake_get_mcp_diagnostics():
             return DummyMCPDiagnostics()
 
-        import clawbot.web.services.mcp_service as mcp_service
+        import vulnbot.web.services.mcp_service as mcp_service
 
         monkeypatch.setattr(mcp_service, "get_mcp_diagnostics", fake_get_mcp_diagnostics)
         rendered = tui_mod.Console(
@@ -818,10 +818,10 @@ class TestCLI:
         assert "5" in output
 
     def test_tui_llm_config_prompt_saves_provider_and_api_key(self, monkeypatch):
-        import clawbot.cli.tui as tui_mod
-        from clawbot.config.schema import ClawBotConfig
+        import vulnbot.cli.tui as tui_mod
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         # New flow: provider -> base_url -> api_key -> fetch models -> model -> enter
         answers = iter(
             [
@@ -866,38 +866,38 @@ class TestCLISubCommands:
         return CliRunner()
 
     def test_run_help(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["run", "--help"])
         assert result.exit_code == 0
 
     def test_recon_help(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["recon", "--help"])
         assert result.exit_code == 0
 
     def test_scan_help(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["scan", "--help"])
         assert result.exit_code == 0
 
     def test_report_help(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["report", "--help"])
         assert result.exit_code == 0
 
     def test_repl_help(self, runner):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["repl", "--help"])
         assert result.exit_code == 0
 
     def test_run_with_prompt_option(self, runner):
         # 2026-06-10 Nyaecho - add --prompt option coverage
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         # Test that --prompt option is accepted and doesn't crash
         # We expect failure due to missing target, but the option should be parsed

@@ -1,12 +1,12 @@
-# ClawBot — Unified AI Pentest Product (v1) — Design Spec
+# VulnBot — Unified AI Pentest Product (v1) — Design Spec
 
 **Date:** 2026-06-22
 **Status:** Approved (design); pending implementation plan
-**Working name:** ClawBot (placeholder — swap before release)
+**Working name:** VulnBot (placeholder — swap before release)
 
 ## 1. Summary
 
-ClawBot merges two existing MIT-licensed AI pentest CLIs into one shippable
+VulnBot merges two existing MIT-licensed AI pentest CLIs into one shippable
 product:
 
 - **VulnClaw** (base) — supplies the agent core, MCP toolchain, markdown skill
@@ -46,7 +46,7 @@ campaigns, plugin system.
 ## 4. Target architecture
 
 ```
-clawbot/
+vulnbot/
   agent/          VulnClaw, unchanged — loop, anti_loop, constraint_policy,
                   token_counter, llm_client, builtin_tools (extended registry)
   mcp/            VulnClaw, unchanged — lifecycle, registry, router
@@ -67,11 +67,11 @@ clawbot/
   cli/  web/      VulnClaw surfaces, unchanged
 ```
 
-The rename `vulnclaw/ -> clawbot/` is mechanical (package dir + imports +
-`pyproject` name + entrypoint + config dir `~/.vulnclaw` -> `~/.clawbot`).
+The rename `vulnclaw/ -> vulnbot/` is mechanical (package dir + imports +
+`pyproject` name + entrypoint + config dir `~/.vulnclaw` -> `~/.vulnbot`).
 
 **Physical location:** the new product lives in a fresh sibling directory
-`C:\Users\jo\github\clawbot` as its own git repo, seeded by copying the VulnClaw
+`C:\Users\jo\github\vulnbot` as its own git repo, seeded by copying the VulnClaw
 working tree (no `.git`). Neither upstream clone (`hackbot/`, `VulnClaw/`) is
 mutated by the merge — they remain read-only donors. HackBot modules are copied
 file-by-file from the `hackbot/` clone during their port steps.
@@ -114,14 +114,14 @@ HackBot's `pdf_report.py` becomes `report/pdf_exporter.py`: a function
 `export_pdf(report_model, out_path)` that consumes VulnClaw's existing report
 model (from `report/generator.py`) — not a parallel report builder. `reportlab`,
 `matplotlib`, `Pillow` move to an optional `[pdf]` extra; the exporter raises a
-clear "install clawbot[pdf]" error if imported without the extra.
+clear "install vulnbot[pdf]" error if imported without the extra.
 
 ### 5.4 Config
 Extend the pydantic config schema with an `intel` section: optional API keys
 (`nvd_api_key`, `shodan_api_key`, `censys_api_id`/`censys_api_secret`) and
 feature toggles. All optional; modules **degrade gracefully** when a key is
 absent (keyless NVD already works in HackBot). Reachable via existing
-dot-notation setter (`clawbot config set intel.nvd_api_key ...`).
+dot-notation setter (`vulnbot config set intel.nvd_api_key ...`).
 
 ## 6. Dependencies
 
@@ -187,7 +187,7 @@ header noting its HackBot origin.
 ## 12. Sequencing (each becomes a plan step)
 
 0. **Scaffold & rename** — fork VulnClaw into the new package, rename to
-   `clawbot`, config dir, entrypoint, NOTICE/attribution; full test pass.
+   `vulnbot`, config dir, entrypoint, NOTICE/attribution; full test pass.
 1. **Tool plumbing** — `intel/tools.py` skeleton + the two `builtin_tools.py`
    seams + constraint registration; one trivial intel tool end-to-end.
 2. **CVE module** — port `cve.py` to httpx + `cve_lookup` tool + `cve-triage.md`.
@@ -198,11 +198,11 @@ header noting its HackBot origin.
 7. **Remediation** — port `remediation.py` + `remediation_advice` tool.
 8. **PDF export** — `report/pdf_exporter.py` + `[pdf]` extra.
 9. **Integration & release prep** — agent integration test, README, CI matrix,
-   version, packaging smoke (`pip install .` + `clawbot --help`).
+   version, packaging smoke (`pip install .` + `vulnbot --help`).
 
 ## 13. Definition of done (v1)
 
-- `pip install clawbot` exposes the `clawbot` CLI; `clawbot --help` works.
+- `pip install vulnbot` exposes the `vulnbot` CLI; `vulnbot --help` works.
 - Agent can call all five intel tools; results enrich `target_state`.
 - A run produces a Markdown report and (with `[pdf]`) a PDF; diff works across
   two snapshots; findings carry risk + compliance/ATT&CK annotations.
@@ -210,29 +210,29 @@ header noting its HackBot origin.
 
 ## 14. Implementation notes & status (foundation, 2026-06-22)
 
-The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\clawbot`
+The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\vulnbot`
 (fresh git repo, branch `master`). Decisions made during execution:
 
 - **Seeded from VulnClaw's clean committed HEAD** (`a3f364c`), not its dirty
   working tree — the working tree had deleted skill-reference files and
   in-progress edits that broke tests. Clean HEAD gives a reproducible base.
 - **Minimal namespace rename only.** Renamed the import package `vulnclaw ->
-  clawbot` (dirs, imports, entrypoint command, PyPI name) and added Yashab Alam
+  vulnbot` (dirs, imports, entrypoint command, PyPI name) and added Yashab Alam
   to authors. User-facing **branding was intentionally NOT changed yet** (config
   dir `~/.vulnclaw`, CLI banners/prog-name, prompts, report brand, frontend,
   static HTML). Half-rebranding broke brand-assertion tests; a full, consistent
   **rebranding sweep across all surfaces (py + ts + html + json) + tests** is
   deferred to its own plan before release.
-- **Intel seam live:** `clawbot/intel/` + `intel/tools.py` registry; wired into
+- **Intel seam live:** `vulnbot/intel/` + `intel/tools.py` registry; wired into
   `agent/builtin_tools.py` at two seams (schema list + dispatch); read-only intel
   tools classified as passive `recon` in `constraint_policy`.
-- **Plan 2 (CVE) DONE:** `clawbot/intel/cve.py` ports HackBot's CVE module to
+- **Plan 2 (CVE) DONE:** `vulnbot/intel/cve.py` ports HackBot's CVE module to
   async httpx — NVD keyword + CVE-ID lookup, best-effort GitHub PoC discovery,
   markdown formatting. The `cve_lookup` stub is replaced by the real handler; a
   `cve-triage` methodology skill ships alongside. Tested via `httpx.MockTransport`
   (no network).
-- **Verification:** `pip install -e .[dev]` + `clawbot` import OK; **532 passed,
-  1 skipped**. `clawbot/intel` is ruff-clean; **5 pre-existing upstream ruff nits**
+- **Verification:** `pip install -e .[dev]` + `vulnbot` import OK; **532 passed,
+  1 skipped**. `vulnbot/intel` is ruff-clean; **5 pre-existing upstream ruff nits**
   remain in VulnClaw files (cli/tui_textual, mcp/router, skills/crypto_tools,
   skills/dispatcher, tests/test_basic) — tracked for the cleanup/rebranding sweep.
 - **Known pre-existing failure (NOT from the merge):**
@@ -245,14 +245,14 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\cla
 
 **Done:** Foundation (0–1) · CVE · OSINT · Topology · Compliance (frameworks) ·
 Findings (risk/diff) · Remediation · PDF export · MITRE ATT&CK · **Rebranding
-sweep**. All capability modules ported; product is now consistently "ClawBot".
+sweep**. All capability modules ported; product is now consistently "VulnBot".
 **Status: feature-complete.** All capability modules ported, product fully
-rebranded to ClawBot, CLI-integrated, CI/README updated, ruff fully clean.
+rebranded to VulnBot, CLI-integrated, CI/README updated, ruff fully clean.
 
 Integration & release — DONE: CLI PDF wiring ✓, entrypoint smoke ✓, README
 refresh ✓ (commands/install/intel-tools section; attribution preserved), CI ✓
-(`ci.yml` now `ruff check clawbot tests` + installs `[dev,web,pdf,osint]`;
-`release.yml` artifact `clawbot-dist`). Fixed the upstream `crypto_tools` morse
+(`ci.yml` now `ruff check vulnbot tests` + installs `[dev,web,pdf,osint]`;
+`release.yml` artifact `vulnbot-dist`). Fixed the upstream `crypto_tools` morse
 duplicate-key (F601) — ruff is now clean across the whole tree.
 
 **Known/deferred:** target-state dedup test (`test_web_target_service_lists_targets`)
@@ -261,11 +261,11 @@ merge. Local wheel build blocked by Windows Defender quarantining offensive-cont
 skill docs (env issue; builds on CI/Linux). Frontend (`npx tsc`) not run locally.
 
 Integration progress:
-- **CLI PDF wiring DONE** — `clawbot report ... --pdf [--pdf-out PATH]` renders the
+- **CLI PDF wiring DONE** — `vulnbot report ... --pdf [--pdf-out PATH]` renders the
   generated report markdown to PDF via `report.pdf_exporter`; tested both with the
   `[pdf]` extra present and absent.
-- **Entrypoint smoke ✓** — `clawbot --help` works via the installed console script
-  ("ClawBot - AI-powered penetration testing CLI"); editable install imports clean.
+- **Entrypoint smoke ✓** — `vulnbot --help` works via the installed console script
+  ("VulnBot - AI-powered penetration testing CLI"); editable install imports clean.
 - **Wheel build (local) blocked by Windows Defender** quarantining offensive-content
   skill docs (`file-upload-to-rce.md`, `tools-reference-02-reverse-shell.md`, …)
   mid-build — reads intermittently fail with Errno 22. These are legitimate pentest
@@ -274,8 +274,8 @@ Integration progress:
   aggressive AV (CI/Linux). **Not a packaging defect** — an environment issue. CI
   should add a Defender exclusion for the repo or run on Linux.
 
-Rebranding sweep: VulnClaw→ClawBot across python/tests/frontend/i18n/static +
-config dir `~/.clawbot` + env prefix `CLAWBOT_` + `ClawBotConfig`. Upstream
+Rebranding sweep: VulnClaw→VulnBot across python/tests/frontend/i18n/static +
+config dir `~/.vulnbot` + env prefix `VULNBOT_` + `VulnBotConfig`. Upstream
 attribution (VulnClaw repo URL, NOTICE, README) preserved. Suite still **604
 passed, 1 skipped**.
 
@@ -286,20 +286,20 @@ reportlab). ATT&CK: `intel/attack.py` vendored (tactics/techniques/tool-map +
 Navigator-layer JSON). Suite: **604 passed, 1 skipped** (only the pre-existing
 upstream target-state dedup test fails, unrelated to the merge).
 
-Compliance notes: `clawbot/intel/compliance.py` — keyword-rule mapping to PCI
+Compliance notes: `vulnbot/intel/compliance.py` — keyword-rule mapping to PCI
 DSS v4.0 / NIST 800-53 / OWASP Top 10 / ISO 27001 with gap analysis; read-only
 `compliance_map` tool maps passed findings or the session's findings. MITRE
 ATT&CK (separate HackBot `attack.py`) deferred. Intel tools live: `cve_lookup`,
 `osint_recon`, `topology_build`, `compliance_map`. Suite: **569 passed, 1 skipped**.
 
-Topology notes: `clawbot/intel/topology.py` — pure/offline parser (nmap text+XML,
+Topology notes: `vulnbot/intel/topology.py` — pure/offline parser (nmap text+XML,
 masscan) → host/port/service/subnet graph; markdown/ascii/json render; read-only
 `topology_build` tool. Suite: **558 passed, 1 skipped**. Intel tools live:
 `cve_lookup`, `osint_recon`, `topology_build`.
 
-OSINT notes: `clawbot/intel/osint.py` — async httpx for crt.sh CT, RDAP WHOIS,
+OSINT notes: `vulnbot/intel/osint.py` — async httpx for crt.sh CT, RDAP WHOIS,
 tech fingerprint; blocking DNS/socket-WHOIS/TLS via `asyncio.to_thread`;
-`dnspython` optional (`clawbot[osint]`) with socket fallback. HackBot's
+`dnspython` optional (`vulnbot[osint]`) with socket fallback. HackBot's
 search-engine email scraping was dropped (unreliable/ToS-fragile) for
 deterministic MX-based candidates. `osint_recon` classified as active `recon`.
 Suite: **546 passed, 1 skipped** (same pre-existing dedup failure).

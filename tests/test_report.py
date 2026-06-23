@@ -1,4 +1,4 @@
-"""ClawBot Report Module Tests - generator.py + poc_builder.py"""
+"""VulnBot Report Module Tests - generator.py + poc_builder.py"""
 
 from pathlib import Path
 
@@ -9,7 +9,7 @@ class TestReportGenerator:
     """Test report generation."""
 
     def _make_session(self):
-        from clawbot.agent.context import PentestPhase, SessionState, VulnerabilityFinding
+        from vulnbot.agent.context import PentestPhase, SessionState, VulnerabilityFinding
 
         state = SessionState(target="192.168.1.100")
         state.advance_phase(PentestPhase.RECON)
@@ -47,7 +47,7 @@ class TestReportGenerator:
         return state
 
     def test_generate_report(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         output = str(tmp_path / "report.md")
@@ -55,7 +55,7 @@ class TestReportGenerator:
         assert path.exists()
 
     def test_generate_html_report(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         output = str(tmp_path / "report.md")
@@ -64,7 +64,7 @@ class TestReportGenerator:
         assert path.exists()
 
     def test_report_contains_target(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         output = str(tmp_path / "report.md")
@@ -73,8 +73,8 @@ class TestReportGenerator:
         assert "192.168.1.100" in content
 
     def test_report_contains_task_constraints_summary(self, tmp_path):
-        from clawbot.agent.context import TaskConstraints
-        from clawbot.report.generator import generate_report
+        from vulnbot.agent.context import TaskConstraints
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         session.task_constraints = TaskConstraints(
@@ -92,7 +92,7 @@ class TestReportGenerator:
         assert "Only paths /admin" in content
 
     def test_report_contains_constraint_violation_audit(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         session.constraint_violations = [
@@ -106,7 +106,7 @@ class TestReportGenerator:
         assert "tool 'fetch'" in content
 
     def test_report_contains_findings(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         output = str(tmp_path / "report.md")
@@ -120,8 +120,8 @@ class TestReportGenerator:
         assert "Lifecycle" in content
 
     def test_report_includes_location_and_repro_details(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.generator import generate_report
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.generator import generate_report
 
         session = SessionState(target="https://example.com")
         finding = VulnerabilityFinding(
@@ -142,8 +142,8 @@ class TestReportGenerator:
         assert "PoC" in content
 
     def test_report_high_risk_pending_item_marks_manual_review(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.generator import generate_report
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.generator import generate_report
 
         session = SessionState(target="https://example.com")
         finding = VulnerabilityFinding(
@@ -164,7 +164,7 @@ class TestReportGenerator:
         assert "Candidate findings" in content or "Pending verification" in content
 
     def test_report_contains_severity_counts(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         output = str(tmp_path / "report.md")
@@ -175,35 +175,35 @@ class TestReportGenerator:
         assert "Medium" in content
 
     def test_report_contains_vulnclaw_brand(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         output = str(tmp_path / "report.md")
         generate_report(session, output)
         content = Path(output).read_text(encoding="utf-8")
-        assert "ClawBot" in content
+        assert "VulnBot" in content
 
     def test_report_prefers_llm_attack_summary_when_generated_from_session(
         self, tmp_path, monkeypatch
     ):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         monkeypatch.setattr(
-            "clawbot.report.generator._generate_attack_summary_from_session",
-            lambda session: "This attack-path summary was generated through ClawBot LLM integration.",
+            "vulnbot.report.generator._generate_attack_summary_from_session",
+            lambda session: "This attack-path summary was generated through VulnBot LLM integration.",
         )
 
         output = str(tmp_path / "report_llm_summary.md")
         generate_report(session, output)
         content = Path(output).read_text(encoding="utf-8")
-        assert "This attack-path summary was generated through ClawBot LLM integration." in content
+        assert "This attack-path summary was generated through VulnBot LLM integration." in content
 
     def test_report_summary_uses_gpt5_token_parameter(self):
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.report.generator import _build_report_summary_llm_kwargs
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.report.generator import _build_report_summary_llm_kwargs
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.provider = "openai"
         config.llm.model = "gpt-5.5"
         config.llm.max_tokens = 4096
@@ -218,8 +218,8 @@ class TestReportGenerator:
         assert "temperature" not in kwargs
 
     def test_report_with_recon_data(self, tmp_path):
-        from clawbot.agent.context import SessionState
-        from clawbot.report.generator import generate_report
+        from vulnbot.agent.context import SessionState
+        from vulnbot.report.generator import generate_report
 
         session = SessionState(target="10.0.0.1")
         session.recon_data = {
@@ -232,8 +232,8 @@ class TestReportGenerator:
         assert "10.0.0.1" in content
 
     def test_report_empty_findings(self, tmp_path):
-        from clawbot.agent.context import SessionState
-        from clawbot.report.generator import generate_report
+        from vulnbot.agent.context import SessionState
+        from vulnbot.report.generator import generate_report
 
         session = SessionState(target="10.0.0.1")
         output = str(tmp_path / "report_empty.md")
@@ -245,7 +245,7 @@ class TestReportGenerator:
         assert "Verified vulnerabilities" in content
 
     def test_report_creates_pocs_dir(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         output = str(tmp_path / "report_with_poc.md")
@@ -256,8 +256,8 @@ class TestReportGenerator:
 
     def test_report_auto_output_path(self, tmp_path):
         """If no output path specified, should auto-generate one."""
-        from clawbot.agent.context import SessionState
-        from clawbot.report.generator import generate_report
+        from vulnbot.agent.context import SessionState
+        from vulnbot.report.generator import generate_report
 
         session = SessionState(target="auto-target")
         # This will use the default SESSIONS_DIR
@@ -269,7 +269,7 @@ class TestReportGenerator:
             pass
 
     def test_report_respects_output_suffix(self, tmp_path):
-        from clawbot.report.generator import generate_report
+        from vulnbot.report.generator import generate_report
 
         session = self._make_session()
         output = str(tmp_path / "report.custom")
@@ -277,7 +277,7 @@ class TestReportGenerator:
         assert path.suffix == ".custom"
 
     def test_generate_report_from_target_state_includes_governance_context(self, tmp_path):
-        from clawbot.report.generator import generate_report_from_target_state
+        from vulnbot.report.generator import generate_report_from_target_state
 
         target_state = {
             "target": "https://example.com",
@@ -321,8 +321,8 @@ class TestReportGenerator:
         assert "old.example.com" in content
 
     def test_persistent_cycle_report_includes_verified_location_and_poc(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.generator import generate_persistent_cycle_report
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.generator import generate_persistent_cycle_report
 
         session = SessionState(target="https://example.com")
         finding = VulnerabilityFinding(
@@ -350,11 +350,11 @@ class TestReportGenerator:
         assert "PoC" in content
 
     def test_persistent_cycle_report_prefers_llm_attack_summary(self, tmp_path, monkeypatch):
-        from clawbot.report.generator import generate_persistent_cycle_report
+        from vulnbot.report.generator import generate_persistent_cycle_report
 
         session = self._make_session()
         monkeypatch.setattr(
-            "clawbot.report.generator._generate_attack_summary_from_session",
+            "vulnbot.report.generator._generate_attack_summary_from_session",
             lambda session: "Persistent pentest cycle summary from the LLM",
         )
 
@@ -378,8 +378,8 @@ class TestPoCBuilder:
     """Test PoC script generation."""
 
     def test_generate_pocs(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.poc_builder import generate_pocs
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.poc_builder import generate_pocs
 
         session = SessionState(target="192.168.1.100")
         session.add_finding(
@@ -403,8 +403,8 @@ class TestPoCBuilder:
             assert p.exists()
 
     def test_poc_content(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.poc_builder import generate_pocs
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.poc_builder import generate_pocs
 
         session = SessionState(target="192.168.1.100")
         session.add_finding(
@@ -430,8 +430,8 @@ class TestPoCBuilder:
 
     def test_poc_is_valid_python(self, tmp_path):
         """Generated PoC should be syntactically valid Python."""
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.poc_builder import generate_pocs
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.poc_builder import generate_pocs
 
         session = SessionState(target="10.0.0.1")
         session.add_finding(
@@ -452,8 +452,8 @@ class TestPoCBuilder:
 
     def test_poc_updates_finding(self, tmp_path):
         """Generating PoCs should update finding.poc_script."""
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.poc_builder import generate_pocs
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.poc_builder import generate_pocs
 
         session = SessionState(target="10.0.0.1")
         session.add_finding(
@@ -467,7 +467,7 @@ class TestPoCBuilder:
         assert session.findings[0].poc_script is not None
 
     def test_generate_single_poc(self):
-        from clawbot.report.poc_builder import generate_single_poc
+        from vulnbot.report.poc_builder import generate_single_poc
 
         poc = generate_single_poc(
             title="SQLi",
@@ -484,7 +484,7 @@ class TestPoCBuilder:
         assert 'target = "http://target"' in poc
 
     def test_generate_single_poc_uses_specific_template_for_rce(self):
-        from clawbot.report.poc_builder import generate_single_poc
+        from vulnbot.report.poc_builder import generate_single_poc
 
         poc = generate_single_poc(
             title="RCE",
@@ -498,8 +498,8 @@ class TestPoCBuilder:
         assert 'target = "https://demo.local/exec"' in poc
 
     def test_generate_pocs_extracts_target_from_evidence(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.poc_builder import generate_pocs
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.poc_builder import generate_pocs
 
         session = SessionState(target="example.com")
         session.add_finding(
@@ -517,8 +517,8 @@ class TestPoCBuilder:
         assert "../../../etc/passwd" in content
 
     def test_generate_pocs_sanitizes_windows_unsafe_title(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.poc_builder import generate_pocs
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.poc_builder import generate_pocs
 
         session = SessionState(target="https://example.com")
         session.add_finding(
@@ -537,8 +537,8 @@ class TestPoCBuilder:
         assert "?" not in paths[0].name
 
     def test_generate_pocs_avoids_existing_filename_collision(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.poc_builder import generate_pocs
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.poc_builder import generate_pocs
 
         pocs_dir = tmp_path / "pocs"
         pocs_dir.mkdir(parents=True, exist_ok=True)
@@ -560,8 +560,8 @@ class TestPoCBuilder:
 
     def test_poc_empty_findings(self, tmp_path):
         """No findings should produce no PoC files."""
-        from clawbot.agent.context import SessionState
-        from clawbot.report.poc_builder import generate_pocs
+        from vulnbot.agent.context import SessionState
+        from vulnbot.report.poc_builder import generate_pocs
 
         session = SessionState(target="10.0.0.1")
         pocs_dir = tmp_path / "pocs"
@@ -569,8 +569,8 @@ class TestPoCBuilder:
         assert len(paths) == 0
 
     def test_report_counts_manual_review_findings(self, tmp_path):
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
-        from clawbot.report.generator import generate_report
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
+        from vulnbot.report.generator import generate_report
 
         session = SessionState(target="https://example.com")
         session.add_finding(

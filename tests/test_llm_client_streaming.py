@@ -14,7 +14,7 @@ class TestNullSink:
 
     def test_null_sink_on_status(self):
         """on_status should do nothing."""
-        from clawbot.agent.llm_client import _NullSink
+        from vulnbot.agent.llm_client import _NullSink
 
         sink = _NullSink()
         # Should not raise
@@ -27,7 +27,7 @@ class TestNullSink:
 
     def test_null_sink_returns_none(self):
         """All methods should return None."""
-        from clawbot.agent.llm_client import _NullSink
+        from vulnbot.agent.llm_client import _NullSink
 
         sink = _NullSink()
         assert sink.on_status("msg") is None
@@ -44,7 +44,7 @@ class TestCallLlmStream:
     @pytest.mark.asyncio
     async def test_stream_tokens_accumulated(self):
         """Test that stream tokens are accumulated correctly."""
-        from clawbot.agent.llm_client import call_llm_stream
+        from vulnbot.agent.llm_client import call_llm_stream
 
         # Mock agent
         agent = MagicMock()
@@ -105,7 +105,7 @@ class TestCallLlmStream:
     @pytest.mark.asyncio
     async def test_stream_with_reasoning(self):
         """Test streaming with reasoning content."""
-        from clawbot.agent.llm_client import call_llm_stream
+        from vulnbot.agent.llm_client import call_llm_stream
 
         agent = MagicMock()
         mock_client = MagicMock()
@@ -162,7 +162,7 @@ class TestTerminalStreamSink:
 
     def test_show_thinking_true(self):
         """Test thinking content is shown when show_thinking=True."""
-        from clawbot.agent.llm_client import _NullSink
+        from vulnbot.agent.llm_client import _NullSink
 
         # This is tested implicitly - NullSink should do nothing
         sink = _NullSink()
@@ -171,7 +171,7 @@ class TestTerminalStreamSink:
 
     def test_show_thinking_false(self):
         """Test thinking content is hidden when show_thinking=False."""
-        from clawbot.agent.llm_client import _NullSink
+        from vulnbot.agent.llm_client import _NullSink
 
         sink = _NullSink()
         # Should not raise even with content
@@ -209,7 +209,7 @@ class TestStreamOutputSequence:
     @pytest.mark.asyncio
     async def test_stream_calls_sink_in_order(self):
         """Verify sink methods are called in the correct order."""
-        from clawbot.agent.llm_client import call_llm_stream
+        from vulnbot.agent.llm_client import call_llm_stream
         spy = SpySink()
 
         # Mock agent
@@ -272,7 +272,7 @@ class TestStreamOutputSequence:
     @pytest.mark.asyncio
     async def test_stream_with_reasoning_calls_thinking_then_content(self):
         """Verify reasoning and content call order."""
-        from clawbot.agent.llm_client import call_llm_stream
+        from vulnbot.agent.llm_client import call_llm_stream
 
         spy = SpySink()
 
@@ -333,7 +333,7 @@ class TestStreamOutputSequence:
     @pytest.mark.asyncio
     async def test_stream_accumulates_full_text(self):
         """Verify returned full text contains all tokens."""
-        from clawbot.agent.llm_client import call_llm_stream
+        from vulnbot.agent.llm_client import call_llm_stream
 
         spy = SpySink()
 
@@ -403,7 +403,7 @@ class TestTerminalStreamSinkRealOutput:
 
         from rich.console import Console
 
-        from clawbot.cli.main import TerminalStreamSink
+        from vulnbot.cli.main import TerminalStreamSink
 
         output = io.StringIO()
         console = Console(file=output, force_terminal=True)
@@ -421,7 +421,7 @@ class TestTerminalStreamSinkRealOutput:
 
         from rich.console import Console
 
-        from clawbot.cli.main import TerminalStreamSink
+        from vulnbot.cli.main import TerminalStreamSink
 
         output = io.StringIO()
         console = Console(file=output, force_terminal=True)
@@ -442,7 +442,7 @@ class TestTerminalStreamSinkRealOutput:
 
         from rich.console import Console
 
-        from clawbot.cli.main import TerminalStreamSink
+        from vulnbot.cli.main import TerminalStreamSink
 
         output = io.StringIO()
         console = Console(file=output, force_terminal=True)
@@ -460,7 +460,7 @@ class TestTerminalStreamSinkRealOutput:
 
         from rich.console import Console
 
-        from clawbot.cli.main import TerminalStreamSink
+        from vulnbot.cli.main import TerminalStreamSink
 
         output = io.StringIO()
         console = Console(file=output, force_terminal=True)
@@ -479,7 +479,7 @@ class TestTerminalStreamSinkRealOutput:
 
         from rich.console import Console
 
-        from clawbot.cli.main import TerminalStreamSink
+        from vulnbot.cli.main import TerminalStreamSink
 
         output = io.StringIO()
         console = Console(file=output, force_terminal=True)
@@ -498,7 +498,7 @@ class TestTerminalStreamSinkRealOutput:
 
         from rich.console import Console
 
-        from clawbot.cli.main import TerminalStreamSink
+        from vulnbot.cli.main import TerminalStreamSink
 
         output = io.StringIO()
         console = Console(file=output, force_terminal=True)
@@ -517,7 +517,7 @@ class TestTerminalStreamSinkRealOutput:
 
         from rich.console import Console
 
-        from clawbot.cli.main import TerminalStreamSink
+        from vulnbot.cli.main import TerminalStreamSink
 
         output = io.StringIO()
         console = Console(file=output, force_terminal=True)
@@ -537,7 +537,7 @@ class TestStreamFallback:
     @pytest.mark.asyncio
     async def test_stream_fallback_when_streaming_not_supported(self):
         """Test automatic fallback when provider does not support streaming."""
-        from clawbot.agent.llm_client import call_llm_stream
+        from vulnbot.agent.llm_client import call_llm_stream
 
         spy = SpySink()
 
@@ -571,7 +571,7 @@ class TestStreamFallback:
     @pytest.mark.asyncio
     async def test_stream_with_cancellation_returns_partial(self):
         """Test partial text is returned on stream interruption."""
-        from clawbot.agent.llm_client import call_llm_stream
+        from vulnbot.agent.llm_client import call_llm_stream
 
         spy = SpySink()
 
@@ -621,7 +621,7 @@ class TestCallLlmAutoStream:
     @pytest.mark.asyncio
     async def test_auto_stream_handles_tool_calls(self):
         """Test tool calls are handled correctly."""
-        from clawbot.agent.llm_client import call_llm_auto_stream
+        from vulnbot.agent.llm_client import call_llm_auto_stream
 
         spy = SpySink()
 
@@ -676,7 +676,7 @@ class TestCallLlmAutoStream:
         agent.context.add_assistant_message = MagicMock()
 
         # Patch handle_tool_calls_with_results
-        import clawbot.agent.llm_client as llm_client_module
+        import vulnbot.agent.llm_client as llm_client_module
         original = llm_client_module.handle_tool_calls_with_results
         llm_client_module.handle_tool_calls_with_results = mock_handle_tool_calls_with_results
 
@@ -691,7 +691,7 @@ class TestCallLlmAutoStream:
     @pytest.mark.asyncio
     async def test_auto_stream_text_only_response(self):
         """Test plain-text response without tool calls."""
-        from clawbot.agent.llm_client import call_llm_auto_stream
+        from vulnbot.agent.llm_client import call_llm_auto_stream
 
         spy = SpySink()
 

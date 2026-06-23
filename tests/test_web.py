@@ -9,9 +9,9 @@ from typer.testing import CliRunner
 
 class TestWebServices:
     def test_constraint_audit_service_aggregates_events(self, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        from clawbot.agent.context import SessionState
-        from clawbot.web.services.constraint_audit_service import get_constraint_audit
+        import vulnbot.target_state.store as store_mod
+        from vulnbot.agent.context import SessionState
+        from vulnbot.web.services.constraint_audit_service import get_constraint_audit
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path)
         state = SessionState(target="https://example.com")
@@ -26,7 +26,7 @@ class TestWebServices:
         )
         store_mod.save_target_state("https://example.com", state, command="scan")
 
-        monkeypatch.setattr("clawbot.web.services.constraint_audit_service.TARGETS_DIR", tmp_path)
+        monkeypatch.setattr("vulnbot.web.services.constraint_audit_service.TARGETS_DIR", tmp_path)
         view = get_constraint_audit()
         assert view.total_events >= 1
         assert view.high_severity_events >= 1
@@ -34,7 +34,7 @@ class TestWebServices:
         assert view.by_code["tool_action_blocked"] >= 1
 
     def test_web_mcp_service_view(self):
-        from clawbot.web.services.mcp_service import get_mcp_diagnostics
+        from vulnbot.web.services.mcp_service import get_mcp_diagnostics
 
         view = get_mcp_diagnostics()
         assert view.total_services >= 2
@@ -43,18 +43,18 @@ class TestWebServices:
         assert fetch.health_status in {"healthy", "degraded", "unknown"}
 
     def test_web_config_service(self):
-        from clawbot.web.services.config_service import get_public_config
+        from vulnbot.web.services.config_service import get_public_config
 
         view = get_public_config()
         assert view.provider
         assert isinstance(view.api_key_configured, bool)
 
     def test_web_config_service_updates_subset(self, monkeypatch, tmp_path):
-        import clawbot.web.services.config_service as config_service
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.web.schemas import ConfigUpdateRequest
+        import vulnbot.web.services.config_service as config_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ConfigUpdateRequest
 
-        saved = ClawBotConfig()
+        saved = VulnBotConfig()
 
         monkeypatch.setattr(config_service, "load_config", lambda: saved)
         monkeypatch.setattr(config_service, "save_config", lambda cfg: None)
@@ -76,9 +76,9 @@ class TestWebServices:
         assert view.python_execute_mode == "trusted-local"
 
     def test_web_target_service_lists_targets(self, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        import clawbot.web.services.target_service as target_service
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
+        import vulnbot.target_state.store as store_mod
+        import vulnbot.web.services.target_service as target_service
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path)
         monkeypatch.setattr(target_service, "TARGETS_DIR", tmp_path)
@@ -103,9 +103,9 @@ class TestWebServices:
         assert items[0].manual_review_count == 1
 
     def test_web_target_service_snapshots(self, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        import clawbot.web.services.target_service as target_service
-        from clawbot.agent.context import SessionState
+        import vulnbot.target_state.store as store_mod
+        import vulnbot.web.services.target_service as target_service
+        from vulnbot.agent.context import SessionState
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path)
         monkeypatch.setattr(target_service, "TARGETS_DIR", tmp_path)
@@ -118,9 +118,9 @@ class TestWebServices:
         assert snapshots[0].snapshot_id
 
     def test_web_target_service_preview_and_diff(self, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        import clawbot.web.services.target_service as target_service
-        from clawbot.agent.context import SessionState, TaskConstraints, VulnerabilityFinding
+        import vulnbot.target_state.store as store_mod
+        import vulnbot.web.services.target_service as target_service
+        from vulnbot.agent.context import SessionState, TaskConstraints, VulnerabilityFinding
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path)
         monkeypatch.setattr(target_service, "TARGETS_DIR", tmp_path)
@@ -163,9 +163,9 @@ class TestWebServices:
         assert diff.added_findings
 
     def test_web_report_service_generates_target_report(self, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        import clawbot.web.services.report_service as report_service
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
+        import vulnbot.target_state.store as store_mod
+        import vulnbot.web.services.report_service as report_service
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path / "targets")
         monkeypatch.setattr(report_service, "SESSIONS_DIR", tmp_path / "sessions")
@@ -186,9 +186,9 @@ class TestWebServices:
         assert Path(path).exists()
 
     def test_web_report_service_generates_html_target_report(self, monkeypatch, tmp_path):
-        import clawbot.target_state.store as store_mod
-        import clawbot.web.services.report_service as report_service
-        from clawbot.agent.context import SessionState, VulnerabilityFinding
+        import vulnbot.target_state.store as store_mod
+        import vulnbot.web.services.report_service as report_service
+        from vulnbot.agent.context import SessionState, VulnerabilityFinding
 
         monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path / "targets")
         monkeypatch.setattr(report_service, "SESSIONS_DIR", tmp_path / "sessions")
@@ -216,7 +216,7 @@ class TestWebServices:
         assert "<!doctype html>" in content.content
 
     def test_web_report_service_reads_report_content(self, monkeypatch, tmp_path):
-        import clawbot.web.services.report_service as report_service
+        import vulnbot.web.services.report_service as report_service
 
         sessions_dir = tmp_path / "sessions"
         sessions_dir.mkdir()
@@ -229,7 +229,7 @@ class TestWebServices:
         assert "# demo" in result.content
 
     def test_web_report_service_resolves_report_path_safely(self, monkeypatch, tmp_path):
-        import clawbot.web.services.report_service as report_service
+        import vulnbot.web.services.report_service as report_service
 
         sessions_dir = tmp_path / "sessions"
         sessions_dir.mkdir()
@@ -247,7 +247,7 @@ class TestWebServices:
     def test_web_report_service_lists_reports_by_modified_time(self, monkeypatch, tmp_path):
         import os
 
-        import clawbot.web.services.report_service as report_service
+        import vulnbot.web.services.report_service as report_service
 
         sessions_dir = tmp_path / "sessions"
         sessions_dir.mkdir()
@@ -268,8 +268,8 @@ class TestWebServices:
 
     @pytest.mark.asyncio
     async def test_web_task_manager_event_flow(self):
-        from clawbot.web.schemas import TaskCreateRequest
-        from clawbot.web.task_manager import WebTaskManager
+        from vulnbot.web.schemas import TaskCreateRequest
+        from vulnbot.web.task_manager import WebTaskManager
 
         manager = WebTaskManager()
         record = manager.create_task(
@@ -289,8 +289,8 @@ class TestWebServices:
         assert "task_completed" in events
 
     def test_web_task_manager_restoring_and_summary(self):
-        from clawbot.web.schemas import TaskCreateRequest
-        from clawbot.web.task_manager import WebTaskManager
+        from vulnbot.web.schemas import TaskCreateRequest
+        from vulnbot.web.task_manager import WebTaskManager
 
         manager = WebTaskManager()
         record = manager.create_task(
@@ -329,8 +329,8 @@ class TestWebServices:
         assert saved.summary.constraint_violation_events
 
     def test_web_task_prompt_includes_explicit_constraints(self):
-        from clawbot.web.schemas import TaskCreateRequest, TaskOptions
-        from clawbot.web.services.task_service import _build_prompt_v2
+        from vulnbot.web.schemas import TaskCreateRequest, TaskOptions
+        from vulnbot.web.services.task_service import _build_prompt_v2
 
         request = TaskCreateRequest(
             command="run",
@@ -357,7 +357,7 @@ class TestWebServices:
     def test_web_task_options_reject_invalid_only_port(self):
         from pydantic import ValidationError
 
-        from clawbot.web.schemas import TaskOptions
+        from vulnbot.web.schemas import TaskOptions
 
         with pytest.raises(ValidationError):
             TaskOptions(only_port=0)
@@ -366,8 +366,8 @@ class TestWebServices:
         assert TaskOptions(only_port=443).only_port == 443
 
     def test_web_task_manager_persists_and_restores_tasks(self, monkeypatch, tmp_path):
-        import clawbot.web.task_manager as task_manager_mod
-        from clawbot.web.schemas import TaskCreateRequest
+        import vulnbot.web.task_manager as task_manager_mod
+        from vulnbot.web.schemas import TaskCreateRequest
 
         storage = tmp_path / "web_tasks.json"
         monkeypatch.setattr(task_manager_mod, "WEB_TASKS_FILE", storage)
@@ -403,13 +403,13 @@ class TestWebServices:
 
     @pytest.mark.asyncio
     async def test_web_task_service_restore_summary_flow(self, monkeypatch):
-        import clawbot.web.services.task_service as task_service
-        from clawbot.agent.context import SessionState
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.web.schemas import TaskCreateRequest
-        from clawbot.web.task_manager import WebTaskManager
+        import vulnbot.web.services.task_service as task_service
+        from vulnbot.agent.context import SessionState
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import TaskCreateRequest
+        from vulnbot.web.task_manager import WebTaskManager
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         monkeypatch.setattr(task_service, "load_config", lambda: config)
 
         class DummyLifecycle:
@@ -534,12 +534,12 @@ class TestWebServices:
 
     @pytest.mark.asyncio
     async def test_web_task_service_blocks_exploit_when_only_port_scope_is_set(self, monkeypatch):
-        import clawbot.web.services.task_service as task_service
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.web.schemas import TaskCreateRequest, TaskOptions
-        from clawbot.web.task_manager import WebTaskManager
+        import vulnbot.web.services.task_service as task_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import TaskCreateRequest, TaskOptions
+        from vulnbot.web.task_manager import WebTaskManager
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         monkeypatch.setattr(task_service, "load_config", lambda: config)
 
         manager = WebTaskManager()
@@ -560,12 +560,12 @@ class TestWebServices:
 
     @pytest.mark.asyncio
     async def test_web_task_service_blocks_run_when_allowed_actions_conflict(self, monkeypatch):
-        import clawbot.web.services.task_service as task_service
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.web.schemas import TaskCreateRequest
-        from clawbot.web.task_manager import WebTaskManager
+        import vulnbot.web.services.task_service as task_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import TaskCreateRequest
+        from vulnbot.web.task_manager import WebTaskManager
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         monkeypatch.setattr(task_service, "load_config", lambda: config)
         monkeypatch.setattr(
             task_service,
@@ -586,11 +586,11 @@ class TestWebServices:
         assert saved.status == "completed"
 
     def test_web_config_service_updates_safety_fields(self, monkeypatch):
-        import clawbot.web.services.config_service as config_service
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.web.schemas import ConfigUpdateRequest
+        import vulnbot.web.services.config_service as config_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ConfigUpdateRequest
 
-        saved = ClawBotConfig()
+        saved = VulnBotConfig()
 
         monkeypatch.setattr(config_service, "load_config", lambda: saved)
         monkeypatch.setattr(config_service, "save_config", lambda cfg: None)
@@ -611,8 +611,8 @@ class TestWebServices:
 
     @pytest.mark.asyncio
     async def test_orchestrator_shared_run_flow(self, monkeypatch):
-        import clawbot.orchestrator as orchestrator
-        from clawbot.agent.context import SessionState
+        import vulnbot.orchestrator as orchestrator
+        from vulnbot.agent.context import SessionState
 
         class DummyAgent:
             def __init__(self):
@@ -680,16 +680,16 @@ class TestWebServices:
         ]
 
     def test_validate_action_constraints(self):
-        from clawbot.agent.constraint_policy import validate_action_constraints
-        from clawbot.agent.context import TaskConstraints
+        from vulnbot.agent.constraint_policy import validate_action_constraints
+        from vulnbot.agent.context import TaskConstraints
 
         constraints = TaskConstraints(allowed_actions=["recon"], strict_mode=True)
         assert validate_action_constraints("run", constraints) is None  # composite command skips allowed check
         assert validate_action_constraints("recon", constraints) is None
 
     def test_web_stream_encode(self):
-        from clawbot.web.schemas import TaskEvent
-        from clawbot.web.stream import encode_sse
+        from vulnbot.web.schemas import TaskEvent
+        from vulnbot.web.stream import encode_sse
 
         encoded = encode_sse(
             TaskEvent(event="round_output", task_id="task_demo", payload={"round": 1})
@@ -700,7 +700,7 @@ class TestWebServices:
 
 class TestWebApp:
     def test_constraint_audit_route_works_without_fastapi(self, monkeypatch):
-        import clawbot.web.app as web_app
+        import vulnbot.web.app as web_app
 
         monkeypatch.setattr(
             web_app,
@@ -713,7 +713,7 @@ class TestWebApp:
         assert callable(web_app.get_constraint_audit)
 
     def test_create_app_missing_fastapi_raises(self):
-        import clawbot.web.app as web_app
+        import vulnbot.web.app as web_app
 
         if web_app.FASTAPI_AVAILABLE:
             pytest.skip("FastAPI is installed in this environment")
@@ -722,7 +722,7 @@ class TestWebApp:
             web_app.create_app()
 
     def test_resolve_web_index_prefers_dist(self, monkeypatch, tmp_path):
-        import clawbot.web.app as web_app
+        import vulnbot.web.app as web_app
 
         dist_dir = tmp_path / "dist"
         static_dir = tmp_path / "static"
@@ -846,7 +846,7 @@ class TestWebApp:
         assert "shell.backend_unavailable" in shell_source
         assert "shell.retry" in shell_source
         api_source = (root / "src" / "api" / "web.ts").read_text(encoding="utf-8")
-        assert "Unable to reach the ClawBot backend API" in api_source
+        assert "Unable to reach the VulnBot backend API" in api_source
         assert "Request failed" in api_source
         assert "getReportDownloadUrl" in api_source
         assert "The backend API returned non-JSON content" in api_source
@@ -997,7 +997,7 @@ class TestWebApp:
 
     def test_static_fallback_is_toc_shell(self):
         root = Path(__file__).resolve().parents[1]
-        source = (root / "clawbot" / "web" / "static" / "index.html").read_text(
+        source = (root / "vulnbot" / "web" / "static" / "index.html").read_text(
             encoding="utf-8"
         )
 
@@ -1008,7 +1008,7 @@ class TestWebApp:
         assert "Phase 1 minimal placeholder console" not in source
 
     def test_cli_web_dry_run(self):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         runner = CliRunner()
         result = runner.invoke(app, ["web", "--dry-run"])
@@ -1016,7 +1016,7 @@ class TestWebApp:
         assert "Web UI" in result.output
 
     def test_cli_web_rejects_remote_host_without_allow_remote(self):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         runner = CliRunner()
         result = runner.invoke(app, ["web", "--host", "0.0.0.0", "--dry-run"])
@@ -1024,7 +1024,7 @@ class TestWebApp:
         assert "allow-remote" in result.output
 
     def test_cli_web_allows_remote_host_with_explicit_flag(self):
-        from clawbot.cli.main import app
+        from vulnbot.cli.main import app
 
         runner = CliRunner()
         result = runner.invoke(app, ["web", "--host", "0.0.0.0", "--allow-remote", "--dry-run"])
@@ -1032,7 +1032,7 @@ class TestWebApp:
         assert "0.0.0.0" in result.output
 
     def test_web_target_preview_and_diff_endpoints(self, monkeypatch):
-        import clawbot.web.app as web_app
+        import vulnbot.web.app as web_app
 
         if not web_app.FASTAPI_AVAILABLE:
             pytest.skip("FastAPI is not installed in this environment")

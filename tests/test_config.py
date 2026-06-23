@@ -1,4 +1,4 @@
-"""ClawBot Config Module Tests — schema.py + settings.py"""
+"""VulnBot Config Module Tests — schema.py + settings.py"""
 
 
 # ── schema.py ────────────────────────────────────────────────────────
@@ -8,7 +8,7 @@ class TestLLMConfig:
     """Test LLMConfig schema."""
 
     def test_default_values(self):
-        from clawbot.config.schema import LLMConfig
+        from vulnbot.config.schema import LLMConfig
 
         config = LLMConfig()
         assert config.model == "gpt-4o"
@@ -18,7 +18,7 @@ class TestLLMConfig:
         assert config.max_tokens == 4096
 
     def test_custom_values(self):
-        from clawbot.config.schema import LLMConfig
+        from vulnbot.config.schema import LLMConfig
 
         config = LLMConfig(
             model="deepseek-chat",
@@ -32,13 +32,13 @@ class TestLLMConfig:
         assert config.temperature == 0.3
 
     def test_provider_field(self):
-        from clawbot.config.schema import LLMConfig
+        from vulnbot.config.schema import LLMConfig
 
         config = LLMConfig(provider="deepseek")
         assert config.provider == "deepseek"
 
     def test_reasoning_effort_field(self):
-        from clawbot.config.schema import LLMConfig
+        from vulnbot.config.schema import LLMConfig
 
         config = LLMConfig(reasoning_effort="high")
         assert config.reasoning_effort == "high"
@@ -48,7 +48,7 @@ class TestMCPServerConfig:
     """Test MCPServerConfig schema."""
 
     def test_default_values(self):
-        from clawbot.config.schema import MCPServerConfig, MCPTransportConfig
+        from vulnbot.config.schema import MCPServerConfig, MCPTransportConfig
 
         config = MCPServerConfig(
             name="test-server",
@@ -60,7 +60,7 @@ class TestMCPServerConfig:
         assert config.description == ""
 
     def test_custom_values(self):
-        from clawbot.config.schema import MCPServerConfig, MCPTransportConfig
+        from vulnbot.config.schema import MCPServerConfig, MCPTransportConfig
 
         config = MCPServerConfig(
             name="burp",
@@ -74,33 +74,33 @@ class TestMCPServerConfig:
         assert config.transport.type == "sse"
 
 
-class TestClawBotConfig:
-    """Test ClawBotConfig schema."""
+class TestVulnBotConfig:
+    """Test VulnBotConfig schema."""
 
     def test_default_values(self):
-        from clawbot.config.schema import ClawBotConfig
+        from vulnbot.config.schema import VulnBotConfig
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         assert config.llm.model == "gpt-4o"
         assert isinstance(config.mcp.servers, dict)
 
     def test_mcp_builtin_servers(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS, ClawBotConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig
 
-        ClawBotConfig()
+        VulnBotConfig()
         # Builtin servers are defined in BUILTIN_MCP_SERVERS, not in default config
         # Default config has empty servers dict; servers are populated by settings
         assert "fetch" in BUILTIN_MCP_SERVERS
         assert "memory" in BUILTIN_MCP_SERVERS
 
     def test_builtin_mcp_server_count(self):
-        from clawbot.config.schema import BUILTIN_MCP_SERVERS
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS
 
         # Should have 4 builtin servers (fetch, memory, chrome-devtools, burp)
         assert len(BUILTIN_MCP_SERVERS) == 4
 
     def test_provider_presets(self):
-        from clawbot.config.schema import PROVIDER_PRESETS
+        from vulnbot.config.schema import PROVIDER_PRESETS
 
         # Should have at least the documented providers
         expected_providers = [
@@ -116,7 +116,7 @@ class TestClawBotConfig:
             assert provider in PROVIDER_PRESETS, f"Missing provider: {provider}"
 
     def test_llm_provider_enum(self):
-        from clawbot.config.schema import LLMProvider
+        from vulnbot.config.schema import LLMProvider
 
         assert hasattr(LLMProvider, "OPENAI")
         assert hasattr(LLMProvider, "DEEPSEEK")
@@ -130,55 +130,55 @@ class TestSettingsLoad:
     """Test config loading."""
 
     def test_load_config_returns_config(self):
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.config.settings import load_config
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.config.settings import load_config
 
         config = load_config()
-        assert isinstance(config, ClawBotConfig)
+        assert isinstance(config, VulnBotConfig)
 
     def test_load_config_has_llm(self):
-        from clawbot.config.settings import load_config
+        from vulnbot.config.settings import load_config
 
         config = load_config()
         assert config.llm is not None
 
     def test_load_config_has_mcp(self):
-        from clawbot.config.settings import load_config
+        from vulnbot.config.settings import load_config
 
         config = load_config()
         assert config.mcp is not None
 
     def test_save_config(self):
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.config.settings import save_config
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.config.settings import save_config
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         config.llm.model = "test-model"
         # save_config saves to the default path
         save_config(config)  # Should not crash
 
     def test_set_config_value(self):
-        from clawbot.config.settings import set_config_value
+        from vulnbot.config.settings import set_config_value
 
         # set_config_value(key, value) — sets in the YAML config
         set_config_value("llm.model", "gpt-4o-mini")  # Should not crash
 
     def test_set_config_nested(self):
-        from clawbot.config.settings import set_config_value
+        from vulnbot.config.settings import set_config_value
 
         set_config_value("llm.temperature", "0.1")  # Should not crash
 
     def test_apply_provider_preset(self):
-        from clawbot.config.schema import ClawBotConfig
-        from clawbot.config.settings import apply_provider_preset
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.config.settings import apply_provider_preset
 
-        config = ClawBotConfig()
+        config = VulnBotConfig()
         apply_provider_preset(config, "deepseek")
         assert config.llm.provider == "deepseek"
         assert "deepseek" in config.llm.base_url.lower()
 
     def test_list_providers(self):
-        from clawbot.config.settings import list_providers
+        from vulnbot.config.settings import list_providers
 
         providers = list_providers()
         assert isinstance(providers, list)
@@ -191,10 +191,10 @@ class TestSettingsLoad:
 
     def test_env_var_override(self, monkeypatch):
         """Test that environment variables override config values."""
-        from clawbot.config.settings import load_config
+        from vulnbot.config.settings import load_config
 
-        monkeypatch.setenv("CLAWBOT_LLM_API_KEY", "env-test-key")
-        monkeypatch.setenv("CLAWBOT_LLM_MODEL", "env-test-model")
+        monkeypatch.setenv("VULNBOT_LLM_API_KEY", "env-test-key")
+        monkeypatch.setenv("VULNBOT_LLM_MODEL", "env-test-model")
         # Config should pick up env vars
         config = load_config()
         # The env var may or may not be applied depending on load_config implementation

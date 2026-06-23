@@ -16,8 +16,8 @@ export interface BoundaryDefaults {
   blockActions: string[];
 }
 
-const STORAGE_KEY = "clawbot.ui.preferences";
-export const UI_PREFERENCES_EVENT = "clawbot.ui.preferences.updated";
+const STORAGE_KEY = "vulnbot.ui.preferences";
+export const UI_PREFERENCES_EVENT = "vulnbot.ui.preferences.updated";
 
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   language: "en-US",
