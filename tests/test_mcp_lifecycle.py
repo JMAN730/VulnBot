@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
 from vulnbot.mcp.lifecycle import MCPLifecycleManager
 from vulnbot.mcp.registry import HealthStatus
 

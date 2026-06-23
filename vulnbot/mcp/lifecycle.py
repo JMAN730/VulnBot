@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from vulnbot.agent.builtin_tools import infer_port_from_url
-from vulnbot.config.schema import VulnBotConfig, MCPServerConfig
+from vulnbot.config.schema import MCPServerConfig, VulnBotConfig
 from vulnbot.mcp.registry import HealthStatus, MCPRegistry
 
 try:

@@ -13,11 +13,11 @@ from pydantic import ValidationError
 from .schema import (
     BUILTIN_MCP_SERVERS,
     PROVIDER_PRESETS,
-    VulnBotConfig,
     LLMProvider,
     MCPServerConfig,
     MCPServersConfig,
     MCPTransportConfig,
+    VulnBotConfig,
 )
 
 # Paths

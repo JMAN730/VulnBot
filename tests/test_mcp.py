@@ -243,7 +243,7 @@ class TestMCPLifecycleManager:
             pass  # Expected to fail for unknown tool
 
     def test_fetch_falls_back_to_local_mode_when_sdk_attach_fails(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -257,7 +257,7 @@ class TestMCPLifecycleManager:
         assert state.attach_succeeded is True
 
     def test_fetch_starts_in_local_mode(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -269,7 +269,7 @@ class TestMCPLifecycleManager:
         assert state.execution_mode == "local"
 
     def test_memory_falls_back_to_local_mode_when_sdk_attach_fails(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -282,7 +282,7 @@ class TestMCPLifecycleManager:
         assert state.execution_mode == "local"
 
     def test_memory_starts_in_local_mode(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -344,7 +344,7 @@ class TestMCPLifecycleManager:
         assert is_error is True
 
     def test_stdio_placeholder_records_attach_attempt_and_error(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -358,7 +358,7 @@ class TestMCPLifecycleManager:
         assert state.last_error_type in {"sdk_unavailable", "config_error", "attach_failed", None}
 
     def test_attach_success_registers_runtime_tools(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -386,7 +386,7 @@ class TestMCPLifecycleManager:
         assert "navigate" not in tools
 
     def test_burp_attach_success_registers_runtime_tools(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -414,7 +414,7 @@ class TestMCPLifecycleManager:
         assert "send_http1_request" not in tools
 
     def test_sse_placeholder_records_invalid_url_error(self):
-        from vulnbot.config.schema import VulnBotConfig, MCPServerConfig, MCPTransportConfig
+        from vulnbot.config.schema import MCPServerConfig, MCPTransportConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -434,7 +434,7 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_structured_result_for_local_tool(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -454,7 +454,7 @@ class TestMCPLifecycleManager:
     @pytest.mark.asyncio
     async def test_fetch_constraint_violation_returns_structured_error(self):
         from vulnbot.agent.context import TaskConstraints
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -472,7 +472,7 @@ class TestMCPLifecycleManager:
     @pytest.mark.asyncio
     async def test_fetch_host_constraint_violation_returns_structured_error(self):
         from vulnbot.agent.context import TaskConstraints
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -490,7 +490,7 @@ class TestMCPLifecycleManager:
     @pytest.mark.asyncio
     async def test_fetch_path_constraint_violation_returns_structured_error(self):
         from vulnbot.agent.context import TaskConstraints
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -507,7 +507,7 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_structured_result_for_placeholder_tool(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         manager = MCPLifecycleManager(VulnBotConfig())
@@ -528,7 +528,7 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_success_for_chrome_when_stdio_call_succeeds(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         class DummySession:
@@ -566,7 +566,7 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_chrome_devtools_reuses_persistent_session(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         class DummySession:
@@ -604,7 +604,7 @@ class TestMCPLifecycleManager:
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_success_for_burp_when_stdio_call_succeeds(self):
-        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig, MCPServerConfig
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
         from vulnbot.mcp.lifecycle import MCPLifecycleManager
 
         class DummySession:
