@@ -191,6 +191,10 @@ class ConfigUpdateRequest(BaseModel):
     provider: Optional[str] = None
     model: Optional[str] = None
     base_url: Optional[str] = None
+    api_key: Optional[str] = Field(
+        default=None,
+        description="LLM API key. Null/omitted leaves the stored key unchanged.",
+    )
     output_dir: Optional[str] = None
     max_rounds: Optional[int] = None
     persistent_rounds_per_cycle: Optional[int] = None

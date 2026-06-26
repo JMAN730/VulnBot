@@ -75,6 +75,42 @@ class TestWebServices:
         assert view.show_thinking is True
         assert view.python_execute_mode == "trusted-local"
 
+    def test_web_config_service_sets_api_key(self, monkeypatch):
+        import vulnbot.web.services.config_service as config_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ConfigUpdateRequest
+
+        saved = VulnBotConfig()
+        saved.llm.api_key = ""
+
+        monkeypatch.setattr(config_service, "load_config", lambda: saved)
+        monkeypatch.setattr(config_service, "save_config", lambda cfg: None)
+
+        view = config_service.update_public_config(ConfigUpdateRequest(api_key="sk-secret-123"))
+
+        # The key is persisted to config and reported as configured...
+        assert saved.llm.api_key == "sk-secret-123"
+        assert view.api_key_configured is True
+        # ...but the raw key is never echoed back to the browser.
+        assert "sk-secret-123" not in view.model_dump_json()
+
+    def test_web_config_service_preserves_api_key_when_omitted(self, monkeypatch):
+        import vulnbot.web.services.config_service as config_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ConfigUpdateRequest
+
+        saved = VulnBotConfig()
+        saved.llm.api_key = "sk-existing"
+
+        monkeypatch.setattr(config_service, "load_config", lambda: saved)
+        monkeypatch.setattr(config_service, "save_config", lambda cfg: None)
+
+        # Saving unrelated settings (no api_key in the payload) must not wipe the key.
+        view = config_service.update_public_config(ConfigUpdateRequest(model="gpt-4o-mini"))
+
+        assert saved.llm.api_key == "sk-existing"
+        assert view.api_key_configured is True
+
     def test_web_target_service_lists_targets(self, monkeypatch, tmp_path):
         import vulnbot.target_state.store as store_mod
         import vulnbot.web.services.target_service as target_service

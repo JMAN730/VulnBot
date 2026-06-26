@@ -38,6 +38,8 @@ def update_public_config(payload: ConfigUpdateRequest) -> ConfigView:
         config.llm.model = payload.model
     if payload.base_url is not None:
         config.llm.base_url = payload.base_url
+    if payload.api_key is not None:
+        config.llm.api_key = payload.api_key
     if payload.output_dir is not None:
         config.session.output_dir = Path(payload.output_dir)
     if payload.max_rounds is not None:

@@ -475,6 +475,10 @@
   "settings.settings_saved": "Settings saved.",
   "settings.api_key_set": "API key set",
   "settings.no_api_key": "No API key",
+  "settings.api_key": "API key",
+  "settings.api_key_hint": "Saved to ~/.vulnbot/config.yaml on this machine. Leave blank to keep the current key.",
+  "settings.api_key_placeholder_set": "Key already set — leave blank to keep it",
+  "settings.api_key_placeholder_unset": "Paste your provider API key",
   "settings.local_only": "Local only",
   "settings.local_only_note": "UI preferences are stored in this browser. Runtime settings are saved to the backend.",
 

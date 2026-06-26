@@ -20,6 +20,7 @@ export interface ConfigUpdateRequest {
   provider?: string;
   model?: string;
   base_url?: string;
+  api_key?: string;
   output_dir?: string;
   max_rounds?: number;
   persistent_rounds_per_cycle?: number;
