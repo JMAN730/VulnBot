@@ -55,6 +55,7 @@ export function SettingsPage({ initialSection = "basic", onOpenAdvanced }: Setti
   const [provider, setProvider] = useState("openai");
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [outputDir, setOutputDir] = useState("");
   const [maxRounds, setMaxRounds] = useState(15);
   const [persistentRounds, setPersistentRounds] = useState(100);
@@ -150,10 +151,13 @@ export function SettingsPage({ initialSection = "basic", onOpenAdvanced }: Setti
         return;
       }
 
+      const trimmedApiKey = apiKey.trim();
       await updateConfig({
         provider,
         model,
         base_url: baseUrl,
+        // Only send the key when the user typed one; an empty field must not wipe a stored key.
+        ...(trimmedApiKey ? { api_key: trimmedApiKey } : {}),
         output_dir: outputDir,
         max_rounds: maxRounds,
         persistent_rounds_per_cycle: persistentRounds,
@@ -164,6 +168,7 @@ export function SettingsPage({ initialSection = "basic", onOpenAdvanced }: Setti
         python_execute_max_lines: pythonExecuteMaxLines,
         python_execute_audit_enabled: pythonExecuteAuditEnabled,
       });
+      setApiKey("");
       await configQuery.refetch();
       setStatus(t("settings.settings_saved"));
     } catch (err) {
@@ -258,6 +263,17 @@ export function SettingsPage({ initialSection = "basic", onOpenAdvanced }: Setti
                 <span>{t("settings.base_url")}</span>
                 <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
                 <small>{t("settings.base_url_hint")}</small>
+              </label>
+              <label className="field field-wide">
+                <span>{t("settings.api_key")}</span>
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  placeholder={configQuery.data?.api_key_configured ? t("settings.api_key_placeholder_set") : t("settings.api_key_placeholder_unset")}
+                />
+                <small>{t("settings.api_key_hint")}</small>
               </label>
             </div>
           )}
