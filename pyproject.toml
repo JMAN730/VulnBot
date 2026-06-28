@@ -69,9 +69,9 @@ pdf = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Unclecheng-li/VulnClaw"
-Repository = "https://github.com/Unclecheng-li/VulnClaw"
-Issues = "https://github.com/Unclecheng-li/VulnClaw/issues"
+Homepage = "https://github.com/Unclecheng-li/Vulnbot"
+Repository = "https://github.com/Unclecheng-li/Vulnbot"
+Issues = "https://github.com/Unclecheng-li/Vulnbot/issues"
 
 [project.scripts]
 vulnbot = "vulnbot.cli.main:app"

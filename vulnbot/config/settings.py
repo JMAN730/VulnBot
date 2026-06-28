@@ -94,18 +94,25 @@ def set_config_value(key: str, value: str) -> None:
     field_name = parts[-1]
 
     # Type coercion based on field annotation
+    coerced: Any = value
     model_fields = getattr(type(obj), "model_fields", {})
     if field_name in model_fields:
         field_info = model_fields[field_name]
         annotation = field_info.annotation
         if annotation is int:
-            value = int(value)
+            coerced = int(value)
         elif annotation is float:
-            value = float(value)
+            coerced = float(value)
         elif annotation is bool:
-            value = value.lower() in ("true", "1", "yes")
+            coerced = value.lower() in ("true", "1", "yes")
+        elif getattr(annotation, "__origin__", None) is list:
+            # Accept a list as-is, or split a comma/newline-separated string.
+            if isinstance(value, str):
+                coerced = [p.strip() for p in value.replace("\n", ",").split(",") if p.strip()]
+            else:
+                coerced = list(value)
 
-    setattr(obj, field_name, value)
+    setattr(obj, field_name, coerced)
     save_config(config)
 
 
@@ -168,6 +175,10 @@ def _overlay_env(config: VulnBotConfig) -> VulnBotConfig:
     # LLM
     if v := os.environ.get("VULNBOT_LLM_API_KEY"):
         config.llm.api_key = v
+    if v := os.environ.get("VULNBOT_LLM_API_KEYS"):
+        keys = [k.strip() for k in v.split(",") if k.strip()]
+        if keys:
+            config.llm.api_keys = keys
     if v := os.environ.get("VULNBOT_LLM_BASE_URL"):
         config.llm.base_url = v
     if v := os.environ.get("VULNBOT_LLM_MODEL"):
@@ -223,6 +234,8 @@ def _strip_defaults(raw: dict) -> None:
     # Keep it simple; just strip known default values.
     if raw.get("llm", {}).get("api_key") == "":
         raw["llm"].pop("api_key", None)
+    if raw.get("llm", {}).get("api_keys") == []:
+        raw["llm"].pop("api_keys", None)
     # Do not strip base_url/model if provider is set; they may be provider-specific.
     # Only strip if still at OpenAI defaults
     if raw.get("llm", {}).get("provider") == "openai":

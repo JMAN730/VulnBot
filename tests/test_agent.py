@@ -1232,26 +1232,22 @@ class TestAgentCoreLoop:
     async def test_llm_client_call_llm_auto_uses_shared_helper(self, monkeypatch):
         from vulnbot.agent import llm_client
 
-        class DummyLoop:
-            async def run_in_executor(self, executor, fn):
-                class Msg:
-                    content = "hello"
-                    tool_calls = None
-
-                class Choice:
-                    message = Msg()
-
-                class Resp:
-                    choices = [Choice()]
-
-                return Resp()
-
         class DummyAgent:
             class _DummyClient:
                 class _Chat:
                     class _Completions:
                         def create(self, **kwargs):
-                            raise AssertionError("executor stub should be used")
+                            class Msg:
+                                content = "hello"
+                                tool_calls = None
+
+                            class Choice:
+                                message = Msg()
+
+                            class Resp:
+                                choices = [Choice()]
+
+                            return Resp()
 
                     completions = _Completions()
 
@@ -1283,7 +1279,6 @@ class TestAgentCoreLoop:
 
         dummy = DummyAgent()
         monkeypatch.setattr(llm_client, "extract_response", lambda message: "ok")
-        monkeypatch.setattr(llm_client.asyncio, "get_running_loop", lambda: DummyLoop())
         result = await llm_client.call_llm_auto(dummy, "sys", "round")
         assert result == "ok"
 
@@ -1291,33 +1286,28 @@ class TestAgentCoreLoop:
     async def test_llm_client_call_llm_auto_retries_within_same_round(self, monkeypatch):
         from vulnbot.agent import llm_client
 
-        class DummyLoop:
-            def __init__(self):
-                self.calls = 0
-
-            async def run_in_executor(self, executor, fn):
-                self.calls += 1
-                if self.calls < 3:
-                    raise RuntimeError("connection error")
-
-                class Msg:
-                    content = "resume succeeded"
-                    tool_calls = None
-
-                class Choice:
-                    message = Msg()
-
-                class Resp:
-                    choices = [Choice()]
-
-                return Resp()
+        calls = {"count": 0}
 
         class DummyAgent:
             class _DummyClient:
                 class _Chat:
                     class _Completions:
                         def create(self, **kwargs):
-                            return None
+                            calls["count"] += 1
+                            if calls["count"] < 3:
+                                raise RuntimeError("connection error")
+
+                            class Msg:
+                                content = "resume succeeded"
+                                tool_calls = None
+
+                            class Choice:
+                                message = Msg()
+
+                            class Resp:
+                                choices = [Choice()]
+
+                            return Resp()
 
                     completions = _Completions()
 
@@ -1351,9 +1341,7 @@ class TestAgentCoreLoop:
             def _get_client(self):
                 return self._DummyClient()
 
-        loop = DummyLoop()
         dummy = DummyAgent()
-        monkeypatch.setattr(llm_client.asyncio, "get_running_loop", lambda: loop)
 
         async def no_sleep(_seconds):
             return None
@@ -1362,26 +1350,21 @@ class TestAgentCoreLoop:
         result = await llm_client.call_llm_auto(dummy, "sys", "round")
         assert "LLM recovered" in result
         assert "resume succeeded" in result
-        assert loop.calls == 3
+        assert calls["count"] == 3
 
     @pytest.mark.asyncio
-    async def test_llm_client_bad_request_errors_are_not_retried(self, monkeypatch):
+    async def test_llm_client_bad_request_errors_are_not_retried(self):
         from vulnbot.agent import llm_client
 
-        class DummyLoop:
-            def __init__(self):
-                self.calls = 0
-
-            async def run_in_executor(self, executor, fn):
-                self.calls += 1
-                raise RuntimeError("bad_request_error: invalid chat setting (2013)")
+        calls = {"count": 0}
 
         class DummyAgent:
             class _DummyClient:
                 class _Chat:
                     class _Completions:
                         def create(self, **kwargs):
-                            return None
+                            calls["count"] += 1
+                            raise RuntimeError("bad_request_error: invalid chat setting (2013)")
 
                     completions = _Completions()
 
@@ -1411,57 +1394,50 @@ class TestAgentCoreLoop:
             def _get_client(self):
                 return self._DummyClient()
 
-        loop = DummyLoop()
         dummy = DummyAgent()
-        monkeypatch.setattr(llm_client.asyncio, "get_running_loop", lambda: loop)
 
         with pytest.raises(RuntimeError):
             await llm_client.call_llm_auto(dummy, "sys", "round")
 
-        assert loop.calls == 1
+        assert calls["count"] == 1
 
     @pytest.mark.asyncio
     async def test_llm_client_tool_summary_bad_request_degrades_to_plain_text(self, monkeypatch):
         from vulnbot.agent import llm_client
 
-        class DummyLoop:
-            def __init__(self):
-                self.calls = 0
-
-            async def run_in_executor(self, executor, fn):
-                self.calls += 1
-                if self.calls == 1:
-
-                    class ToolCall:
-                        id = "call_1"
-
-                        class Function:
-                            name = "fetch"
-                            arguments = '{"url":"https://example.com"}'
-
-                        function = Function()
-
-                    class Msg:
-                        content = ""
-                        tool_calls = [ToolCall()]
-
-                    class Choice:
-                        message = Msg()
-
-                    class Resp:
-                        choices = [Choice()]
-
-                    return Resp()
-                raise RuntimeError(
-                    "bad_request_error: invalid function arguments json string, tool_call_id: call_1"
-                )
+        calls = {"count": 0}
 
         class DummyAgent:
             class _DummyClient:
                 class _Chat:
                     class _Completions:
                         def create(self, **kwargs):
-                            return None
+                            calls["count"] += 1
+                            if calls["count"] == 1:
+
+                                class ToolCall:
+                                    id = "call_1"
+
+                                    class Function:
+                                        name = "fetch"
+                                        arguments = '{"url":"https://example.com"}'
+
+                                    function = Function()
+
+                                class Msg:
+                                    content = ""
+                                    tool_calls = [ToolCall()]
+
+                                class Choice:
+                                    message = Msg()
+
+                                class Resp:
+                                    choices = [Choice()]
+
+                                return Resp()
+                            raise RuntimeError(
+                                "bad_request_error: invalid function arguments json string, tool_call_id: call_1"
+                            )
 
                     completions = _Completions()
 
@@ -1511,9 +1487,7 @@ class TestAgentCoreLoop:
                 [],
             )
 
-        loop = DummyLoop()
         dummy = DummyAgent()
-        monkeypatch.setattr(llm_client.asyncio, "get_running_loop", lambda: loop)
         monkeypatch.setattr(
             llm_client, "handle_tool_calls_with_results", fake_handle_tool_calls_with_results
         )
@@ -1525,10 +1499,6 @@ class TestAgentCoreLoop:
     @pytest.mark.asyncio
     async def test_llm_client_does_not_persist_tool_summary_as_assistant_history(self, monkeypatch):
         from vulnbot.agent import llm_client
-
-        class DummyLoop:
-            def run_in_executor(self, executor, func):
-                return func()
 
         class DummyToolCall:
             id = "tool_1"
@@ -1618,7 +1588,6 @@ class TestAgentCoreLoop:
             llm_client, "handle_tool_calls_with_results", fake_handle_tool_calls_with_results
         )
         monkeypatch.setattr(llm_client, "extract_response", lambda message: message.content)
-        monkeypatch.setattr(llm_client.asyncio, "get_running_loop", lambda: DummyLoop())
 
         result = await llm_client.call_llm_auto(DummyAgent(), "sys", "round")
         assert result == "followup ok"

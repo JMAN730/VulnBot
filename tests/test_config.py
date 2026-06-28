@@ -43,6 +43,39 @@ class TestLLMConfig:
         config = LLMConfig(reasoning_effort="high")
         assert config.reasoning_effort == "high"
 
+    def test_api_keys_defaults_empty(self):
+        from vulnbot.config.schema import LLMConfig
+
+        config = LLMConfig()
+        assert config.api_keys == []
+
+    def test_key_pool_falls_back_to_single_key(self):
+        from vulnbot.config.schema import LLMConfig
+
+        config = LLMConfig(api_key="sk-single")
+        assert config.key_pool() == ["sk-single"]
+        assert config.primary_key() == "sk-single"
+
+    def test_key_pool_prefers_list_when_set(self):
+        from vulnbot.config.schema import LLMConfig
+
+        config = LLMConfig(api_key="sk-single", api_keys=["k1", "k2", "k3"])
+        assert config.key_pool() == ["k1", "k2", "k3"]
+        assert config.primary_key() == "k1"
+
+    def test_key_pool_filters_empties(self):
+        from vulnbot.config.schema import LLMConfig
+
+        config = LLMConfig(api_keys=["k1", "", "  ", "k2"])
+        assert config.key_pool() == ["k1", "k2"]
+
+    def test_primary_key_empty_when_no_keys(self):
+        from vulnbot.config.schema import LLMConfig
+
+        config = LLMConfig()
+        assert config.key_pool() == []
+        assert config.primary_key() == ""
+
 
 class TestMCPServerConfig:
     """Test MCPServerConfig schema."""
@@ -200,3 +233,40 @@ class TestSettingsLoad:
         # The env var may or may not be applied depending on load_config implementation
         # Just verify it doesn't crash
         assert config is not None
+
+    def test_env_var_api_keys_list(self, monkeypatch):
+        """VULNBOT_LLM_API_KEYS (comma-separated) populates the key list."""
+        from vulnbot.config.settings import load_config
+
+        monkeypatch.setenv("VULNBOT_LLM_API_KEYS", "k1, k2 ,k3")
+        config = load_config()
+        assert config.llm.api_keys == ["k1", "k2", "k3"]
+
+    def test_set_config_value_api_keys_from_string(self, monkeypatch, tmp_path):
+        """set_config_value('llm.api_keys', 'a,b') stores a parsed list."""
+        import vulnbot.config.settings as settings_mod
+
+        monkeypatch.setattr(settings_mod, "CONFIG_FILE", tmp_path / "config.yaml")
+        monkeypatch.setattr(settings_mod, "CONFIG_DIR", tmp_path)
+        settings_mod.set_config_value("llm.api_keys", "a, b ,c")
+        config = settings_mod.load_config()
+        assert config.llm.api_keys == ["a", "b", "c"]
+
+    def test_strip_defaults_drops_empty_api_keys(self):
+        from vulnbot.config.settings import _strip_defaults
+
+        raw = {"llm": {"api_keys": [], "model": "gpt-4o", "provider": "openai"}}
+        _strip_defaults(raw)
+        assert "api_keys" not in raw["llm"]
+
+    def test_save_load_roundtrips_api_keys(self, monkeypatch, tmp_path):
+        import vulnbot.config.settings as settings_mod
+        from vulnbot.config.schema import VulnBotConfig
+
+        monkeypatch.setattr(settings_mod, "CONFIG_FILE", tmp_path / "config.yaml")
+        monkeypatch.setattr(settings_mod, "CONFIG_DIR", tmp_path)
+        config = VulnBotConfig()
+        config.llm.api_keys = ["x1", "x2"]
+        settings_mod.save_config(config)
+        reloaded = settings_mod.load_config()
+        assert reloaded.llm.api_keys == ["x1", "x2"]

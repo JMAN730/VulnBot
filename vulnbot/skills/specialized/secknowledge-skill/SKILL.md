@@ -20,11 +20,11 @@ description: |
 > vulnerability discovery guidance: WooYun 88,636 vulnerability discovery guidance × vulnerability discovery guidance 5,600+ vulnerability discovery guidance × GAARM 150 AI vulnerability discovery guidance × OWASP
 > vulnerability discovery guidance: SKILL.md（vulnerability discovery guidance）→ references/（vulnerability discovery guidance）
 
-## VulnClaw vulnerability discovery guidance
+## Vulnbot vulnerability discovery guidance
 
-- vulnerability discovery guidance Skill vulnerability discovery guidance `Pa55w0rd/secknowledge-skill`，vulnerability discovery guidance VulnClaw vulnerability discovery guidance `secknowledge-skill` specialized skill vulnerability discovery guidance；vulnerability discovery guidance MIT License。
+- vulnerability discovery guidance Skill vulnerability discovery guidance `Pa55w0rd/secknowledge-skill`，vulnerability discovery guidance Vulnbot vulnerability discovery guidance `secknowledge-skill` specialized skill vulnerability discovery guidance；vulnerability discovery guidance MIT License。
 - CTF/SRC vulnerability discovery guidance `references/vulnclaw-ctf-src-routing.md` vulnerability discovery guidance，vulnerability discovery guidance `web-*`、`ai-*`、`testing-methodology.md` vulnerability discovery guidance `gaarm-risk-matrix.md`。
-- vulnerability discovery guidance VulnClaw vulnerability discovery guidance：CTF vulnerability discovery guidance `ctf-web`/`ctf-crypto`/`ctf-misc`，SRC vulnerability discovery guidance Skill vulnerability discovery guidance、vulnerability discovery guidance、vulnerability discovery guidance。
+- vulnerability discovery guidance Vulnbot vulnerability discovery guidance：CTF vulnerability discovery guidance `ctf-web`/`ctf-crypto`/`ctf-misc`，SRC vulnerability discovery guidance Skill vulnerability discovery guidance、vulnerability discovery guidance、vulnerability discovery guidance。
 - vulnerability discovery guidance、vulnerability discovery guidance"vulnerability discovery guidance/vulnerability discovery guidance"vulnerability discovery guidance；vulnerability discovery guidance reference vulnerability discovery guidance payload、CVE、GAARM/OWASP vulnerability discovery guidance。
 
 ## vulnerability discovery guidance

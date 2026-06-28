@@ -131,6 +131,168 @@ class TestCLI:
         assert result.exit_code == 0
         assert result.output is not None
 
+    def test_network_scan_defaults_to_safe_recon_scan_actions(self, runner, monkeypatch):
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+
+        captured = {}
+
+        async def fake_orchestrated_task(**kwargs):
+            captured["command"] = kwargs["command"]
+            captured["target"] = kwargs["target"]
+
+            class DummyConfig:
+                class session:
+                    show_thinking = False
+                    max_rounds = 3
+
+            class DummyAgent:
+                async def auto_pentest(self, prompt, target=None, max_rounds=0, stream_sink=None):
+                    captured["prompt"] = prompt
+                    captured["runner_target"] = target
+                    captured["max_rounds"] = max_rounds
+
+            await kwargs["runner"](DummyAgent(), DummyConfig())
+
+            class Result:
+                summary = {"findings_count": 0, "executed_steps": 0}
+
+            return Result()
+
+        monkeypatch.setattr(cli_main, "_run_cli_orchestrated_task", fake_orchestrated_task)
+
+        result = runner.invoke(
+            app,
+            ["network-scan", "192.168.56.10", "--profile", "fast", "--ports", "22,80"],
+        )
+
+        assert result.exit_code == 0
+        assert captured["command"] == "network-scan"
+        assert captured["target"] == "192.168.56.10"
+        assert "profile=fast" in captured["prompt"]
+        assert "ports=22,80" in captured["prompt"]
+        assert "Only allowed actions: recon,scan" in captured["prompt"]
+        assert captured["max_rounds"] == 3
+
+    def test_network_scan_without_target_uses_connected_wifi(self, runner, monkeypatch):
+        import vulnbot.agent.network_scan as network_scan_mod
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+
+        captured = {}
+
+        monkeypatch.setattr(
+            network_scan_mod,
+            "detect_connected_wifi_target",
+            lambda: network_scan_mod.WifiScanTarget(
+                interface="wlp2s0",
+                address="192.168.1.42",
+                cidr="192.168.1.0/24",
+            ),
+        )
+
+        async def fake_orchestrated_task(**kwargs):
+            captured["target"] = kwargs["target"]
+
+            class DummyConfig:
+                class session:
+                    show_thinking = False
+                    max_rounds = 3
+
+            class DummyAgent:
+                async def auto_pentest(self, prompt, target=None, max_rounds=0, stream_sink=None):
+                    captured["prompt"] = prompt
+                    captured["runner_target"] = target
+
+            await kwargs["runner"](DummyAgent(), DummyConfig())
+
+            class Result:
+                summary = {"findings_count": 0, "executed_steps": 0}
+
+            return Result()
+
+        monkeypatch.setattr(cli_main, "_run_cli_orchestrated_task", fake_orchestrated_task)
+
+        result = runner.invoke(app, ["network-scan", "--profile", "fast"])
+
+        assert result.exit_code == 0
+        assert "wlp2s0" in result.output
+        assert captured["target"] == "192.168.1.0/24"
+        assert captured["runner_target"] == "192.168.1.0/24"
+        assert "against 192.168.1.0/24" in captured["prompt"]
+
+    def test_network_scan_rejects_unknown_profile(self, runner):
+        from vulnbot.cli.main import app
+
+        result = runner.invoke(app, ["network-scan", "192.168.56.10", "--profile", "loud"])
+
+        assert result.exit_code == 1
+        assert "profile must be one of" in result.output
+
+    def test_network_scan_parallel_agents_uses_coordinator(self, runner, monkeypatch):
+        import vulnbot.agent.parallel_agents as parallel_mod
+        import vulnbot.cli.main as cli_main
+        from vulnbot.cli.main import app
+
+        captured = {}
+
+        async def fake_parallel(agent, **kwargs):
+            captured.update(kwargs)
+            return []
+
+        async def fake_orchestrated_task(**kwargs):
+            captured["command"] = kwargs["command"]
+            captured["target"] = kwargs["target"]
+
+            class DummyConfig:
+                class session:
+                    show_thinking = False
+                    max_rounds = 9
+
+            class DummyAgent:
+                async def auto_pentest(self, prompt, target=None, max_rounds=0, stream_sink=None):
+                    raise AssertionError("parallel branch should use run_parallel_pentest")
+
+            await kwargs["runner"](DummyAgent(), DummyConfig())
+
+            class Result:
+                summary = {"findings_count": 0, "executed_steps": 0}
+
+            return Result()
+
+        monkeypatch.setattr(parallel_mod, "run_parallel_pentest", fake_parallel)
+        monkeypatch.setattr(cli_main, "_run_cli_orchestrated_task", fake_orchestrated_task)
+
+        result = runner.invoke(
+            app,
+            [
+                "network-scan",
+                "192.168.56.0/24",
+                "--profile",
+                "fast",
+                "--parallel-agents",
+                "2",
+                "--parallel-depth",
+                "2",
+                "--worker-rounds",
+                "4",
+                "--surface-limit",
+                "7",
+                "--max-rounds",
+                "5",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert captured["command"] == "network-scan"
+        assert captured["target"] == "192.168.56.0/24"
+        assert captured["discovery_rounds"] == 5
+        assert captured["worker_rounds"] == 4
+        assert captured["max_agents"] == 2
+        assert captured["max_depth"] == 2
+        assert captured["surface_limit"] == 7
+        assert "Parallel agents:" in result.output
+
     def test_repl_persistent_explicit_target_restores_history(self, runner, monkeypatch):
         import vulnbot.agent.core as agent_core
         import vulnbot.cli.main as cli_main
@@ -881,6 +1043,12 @@ class TestCLISubCommands:
         from vulnbot.cli.main import app
 
         result = runner.invoke(app, ["scan", "--help"])
+        assert result.exit_code == 0
+
+    def test_network_scan_help(self, runner):
+        from vulnbot.cli.main import app
+
+        result = runner.invoke(app, ["network-scan", "--help"])
         assert result.exit_code == 0
 
     def test_report_help(self, runner):

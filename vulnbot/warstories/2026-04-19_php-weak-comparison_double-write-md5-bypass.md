@@ -8,7 +8,7 @@
 | **case study note** | `http://node5.anna.nssctf.cn:29058/` |
 | **case study note** | Web — PHP case study note / preg_replace case study note / MD5 case study note |
 | **case study note** | PHP、case study note、case study note、case study note、MD5 0e case study note、case study note |
-| **VulnClaw case study note** | 61（case study note 52 case study note，case study note 9 case study note） |
+| **Vulnbot case study note** | 61（case study note 52 case study note，case study note 9 case study note） |
 | **MCP case study note** | fetch, python_execute |
 | **case study note Flag** | `NSSCTF{4dd0e8c8-d64c-4fe9-90a7-6944df79a1f2}` |
 
@@ -143,7 +143,7 @@ POST md5_1=QNKCDZO&md5_2=s878926199a
 
 ---
 
-## VulnClaw case study note
+## Vulnbot case study note
 
 ### case study note：61 case study note ~15 case study note
 
@@ -160,7 +160,7 @@ POST md5_1=QNKCDZO&md5_2=s878926199a
 
 #### 1. MD5 case study note（case study note）
 
-VulnClaw case study note"0e case study note md5 case study note"，case study note **`0e` case study note（0-9）** case study note PHP case study note。
+Vulnbot case study note"0e case study note md5 case study note"，case study note **`0e` case study note（0-9）** case study note PHP case study note。
 
 - case study note `100523`（md5 = `0e993d...`，case study note d/f）→ PHP case study note → case study note
 - case study note 5+ case study note
@@ -181,7 +181,7 @@ case study note：
 #### 3. Session case study note
 
 - case study note `$_SESSION` case study note L1/L2/L3 case study note → case study note cookie
-- VulnClaw case study note → case study note
+- Vulnbot case study note → case study note
 - case study note "case study note flag case study note" case study note
 
 **case study note**：case study note `$_SESSION` case study note，case study note session case study note（cookie case study note）
@@ -226,7 +226,7 @@ case study note flag case study note 9 case study note。case study note，case 
 | `s214587387a` | `0e848204310308006290363795692068` | ✅ |
 | `s1091221200a` | `0e940625744785414655937625828514` | ✅ |
 
-### VulnClaw case study note
+### Vulnbot case study note
 
 | case study note | case study note | case study note |
 |------|------|------|
@@ -250,4 +250,4 @@ case study note flag case study note 9 case study note。case study note，case 
 
 ---
 
-*VulnClaw case study note · 2026-04-19 · 61 case study note（case study note ~15 case study note）· case study note · MD5 case study note 🦞*
+*Vulnbot case study note · 2026-04-19 · 61 case study note（case study note ~15 case study note）· case study note · MD5 case study note 🦞*
