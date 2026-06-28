@@ -206,6 +206,29 @@ class ConfigUpdateRequest(BaseModel):
     python_execute_audit_enabled: Optional[bool] = None
 
 
+class ProviderPresetView(BaseModel):
+    id: str
+    label: str
+    base_url: str
+    default_model: str
+
+
+class ProvidersView(BaseModel):
+    providers: list[ProviderPresetView] = Field(default_factory=list)
+
+
+class ProviderModelsRequest(BaseModel):
+    provider: Optional[str] = None
+    base_url: Optional[str] = None
+
+
+class ProviderModelsResponse(BaseModel):
+    base_url: str
+    models: list[str] = Field(default_factory=list)
+    has_api_key: bool = False
+    detail: str = ""
+
+
 class ReportContentView(BaseModel):
     path: str
     kind: str

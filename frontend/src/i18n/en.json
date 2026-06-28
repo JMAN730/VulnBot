@@ -479,6 +479,12 @@
   "settings.api_key_hint": "Saved to ~/.vulnbot/config.yaml on this machine. Leave blank to keep the current key.",
   "settings.api_key_placeholder_set": "Key already set — leave blank to keep it",
   "settings.api_key_placeholder_unset": "Paste your provider API key",
+  "settings.custom_endpoint": "Custom endpoint…",
+  "settings.custom_model": "Custom model…",
+  "settings.refresh_models": "Refresh models",
+  "settings.loading_models": "Loading…",
+  "settings.models_loaded": "Loaded {count} models",
+  "settings.no_models": "No models returned. Save your API key, then refresh.",
   "settings.local_only": "Local only",
   "settings.local_only_note": "UI preferences are stored in this browser. Runtime settings are saved to the backend.",
 
