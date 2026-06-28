@@ -11,7 +11,7 @@ reconnaissance guidance。
 # 🦞 {reconnaissance guidance} reconnaissance guidance
 
 > reconnaissance guidance：{reconnaissance guidance}
-> reconnaissance guidance：VulnClaw v0.3.1
+> reconnaissance guidance：Vulnbot v0.3.1
 
 ---
 
@@ -131,7 +131,7 @@ reconnaissance guidance。
 
 ---
 
-*reconnaissance guidance VulnClaw reconnaissance guidance，reconnaissance guidance。*
+*reconnaissance guidance Vulnbot reconnaissance guidance，reconnaissance guidance。*
 ```
 
 ## Python reconnaissance guidance

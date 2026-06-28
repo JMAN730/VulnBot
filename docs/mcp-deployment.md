@@ -1,8 +1,8 @@
-# VulnClaw MCP 工具部署方案
+# Vulnbot MCP 工具部署方案
 
 ## 概览
 
-VulnClaw 保留 4 个 MCP 服务，其中 2 个本地实现开箱即用，2 个需部署外部服务。
+Vulnbot 保留 4 个 MCP 服务，其中 2 个本地实现开箱即用，2 个需部署外部服务。
 
 | 服务 | 模式 | 状态 | 用途 |
 |---|---|---|---|
@@ -24,7 +24,7 @@ https://github.com/ChromeDevTools/chrome-devtools-mcp
 - ffmpeg（screencast 功能需要，可选）
 
 ### 安装
-无需手动安装，VulnClaw 配置中已使用 `npx -y chrome-devtools-mcp@latest` 自动拉取。
+无需手动安装，Vulnbot 配置中已使用 `npx -y chrome-devtools-mcp@latest` 自动拉取。
 
 ### 启动 Chrome 远程调试
 ```bash
@@ -35,8 +35,8 @@ https://github.com/ChromeDevTools/chrome-devtools-mcp
 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug
 ```
 
-### VulnClaw 配置
-编辑 `~/.vulnclaw/config.yaml`：
+### Vulnbot 配置
+编辑 `~/.vulnbot/config.yaml`：
 ```yaml
 mcp:
   servers:
@@ -53,7 +53,7 @@ mcp:
 
 或通过 CLI：
 ```bash
-vulnclaw config set mcp.servers.chrome-devtools.enabled true
+vulnbot config set mcp.servers.chrome-devtools.enabled true
 ```
 
 ### 提供的能力（31+ 工具）
@@ -106,16 +106,16 @@ cd burp-mcp
 3. 默认监听 `http://127.0.0.1:9876`
 4. 可选：修改 Host/Port
 
-### VulnClaw 配置
+### Vulnbot 配置
 
 将构建的 JAR 复制到固定位置：
 ```bash
-# 建议放在 VulnClaw 工具目录
-mkdir -p ~/.vulnclaw/tools
-cp build/libs/burp-mcp-all.jar ~/.vulnclaw/tools/
+# 建议放在 Vulnbot 工具目录
+mkdir -p ~/.vulnbot/tools
+cp build/libs/burp-mcp-all.jar ~/.vulnbot/tools/
 ```
 
-编辑 `~/.vulnclaw/config.yaml`：
+编辑 `~/.vulnbot/config.yaml`：
 ```yaml
 mcp:
   servers:
@@ -126,7 +126,7 @@ mcp:
         command: java
         args:
           - "-jar"
-          - "~/.vulnclaw/tools/burp-mcp-all.jar"
+          - "~/.vulnbot/tools/burp-mcp-all.jar"
           - "--sse-url"
           - "http://127.0.0.1:9876"
 ```
@@ -154,8 +154,8 @@ mcp:
 ### 验证 Chrome DevTools MCP
 ```bash
 # 1. 启动 Chrome 调试模式
-# 2. 启动 VulnClaw
-vulnclaw chat
+# 2. 启动 Vulnbot
+vulnbot repl
 
 # 3. 输入测试命令
 > 打开 http://example.com 并截图
@@ -164,8 +164,8 @@ vulnclaw chat
 ### 验证 Burp MCP
 ```bash
 # 1. 启动 Burp Suite 并启用 MCP 扩展
-# 2. 启动 VulnClaw
-vulnclaw chat
+# 2. 启动 Vulnbot
+vulnbot repl
 
 # 3. 输入测试命令
 > 查看 Burp 抓包历史

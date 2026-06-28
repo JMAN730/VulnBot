@@ -8,7 +8,7 @@
 | **case study note** | `http://node5.anna.nssctf.cn:23284/` |
 | **case study note** | Web — PHP case study note + call_user_func case study note |
 | **case study note** | PHP、case study note、case study note、call_user_func、case study note |
-| **VulnClaw case study note** | 12 |
+| **Vulnbot case study note** | 12 |
 | **MCP case study note** | fetch |
 | **case study note Flag** | `NSSCTF{7d67ec46-4d71-4dc4-904b-151b8a923e53}` |
 
@@ -130,9 +130,9 @@ GET /NsScTf.php p=Nss2::Ctf
 
 ---
 
-## VulnClaw case study note
+## Vulnbot case study note
 
-case study note（#001 case study note），VulnClaw case study note：
+case study note（#001 case study note），Vulnbot case study note：
 
 | case study note | case study note | case study note | case study note |
 |----------|------|------|------|
@@ -158,7 +158,7 @@ case study note（#001 case study note），VulnClaw case study note：
 4. **call_user_func case study note**: `['case study note', 'case study note']` case study note `case study note::case study note()`
 5. **case study note**: case study note `stripos` case study note → case study note `call_user_func` case study note → case study note
 
-### VulnClaw case study note
+### Vulnbot case study note
 
 | case study note | case study note | case study note |
 |------|------|------|
@@ -170,4 +170,4 @@ case study note（#001 case study note），VulnClaw case study note：
 
 ---
 
-*VulnClaw case study note · 2026-04-19 · 12 case study note · case study note · case study note 🦞*
+*Vulnbot case study note · 2026-04-19 · 12 case study note · case study note · case study note 🦞*

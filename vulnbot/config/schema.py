@@ -107,6 +107,11 @@ class LLMConfig(BaseModel):
         description="LLM provider name (openai/minimax/deepseek/zhipu/moonshot/qwen/siliconflow/doubao/baichuan/stepfun/sensetime/yi/custom)",
     )
     api_key: str = Field(default="", description="API key for the chosen provider")
+    api_keys: list[str] = Field(
+        default_factory=list,
+        description="Optional list of API keys to fail over between when one is "
+        "rate-limited, out of quota, or invalid. Overrides api_key when non-empty.",
+    )
     base_url: str = Field(
         default="https://api.openai.com/v1",
         description="OpenAI-compatible API base URL (auto-filled by provider)",
@@ -120,6 +125,20 @@ class LLMConfig(BaseModel):
     reasoning_effort: str = Field(
         default="high", description="Reasoning effort level (OpenAI o-series only)"
     )
+
+    def key_pool(self) -> list[str]:
+        """Return the ordered, de-blanked list of usable API keys.
+
+        Prefers ``api_keys`` when it has any non-empty entry; otherwise falls
+        back to the single ``api_key``. Whitespace-only entries are dropped.
+        """
+        candidates = self.api_keys or ([self.api_key] if self.api_key else [])
+        return [k.strip() for k in candidates if k and k.strip()]
+
+    def primary_key(self) -> str:
+        """Return the first usable API key, or an empty string if none."""
+        pool = self.key_pool()
+        return pool[0] if pool else ""
 
 
 class MCPTransportConfig(BaseModel):

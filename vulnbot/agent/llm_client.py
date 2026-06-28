@@ -82,6 +82,28 @@ def _is_non_retriable_llm_error(error_text: str) -> bool:
     return any(marker in error_text for marker in hard_fail_markers)
 
 
+def _is_key_exhausted_error(error_text: str) -> bool:
+    """Return True for errors that mean the *current* API key is unusable.
+
+    These are rate-limit / quota / balance exhaustion signals where switching to
+    a different key is the right recovery. Covers OpenAI-style 429/quota plus
+    deepseek (402 insufficient balance) and zhipu (codes 1302/1113, 余额) errors.
+    """
+    exhausted_markers = [
+        "rate limit",
+        "rate_limit",
+        "too many requests",
+        "429",
+        "quota",
+        "insufficient balance",
+        "余额",  # zhipu/deepseek: account balance insufficient
+        "402",
+        "1302",  # zhipu: concurrency / rate limit
+        "1113",  # zhipu: account balance insufficient
+    ]
+    return any(marker in error_text for marker in exhausted_markers)
+
+
 def _is_openai_reasoning_model(provider: str, model: str) -> bool:
     """Return True for OpenAI models that use the newer reasoning parameter set."""
     if provider.lower() != "openai":
@@ -140,12 +162,14 @@ async def _call_with_persistent_retries(
     Returns:
         (response, retry_attempts)
     """
-    loop = asyncio.get_running_loop()
     retry_attempts = 0
+    pool_size = len(getattr(agent, "_key_pool", None) or [])
+    can_rotate = pool_size > 1 and callable(getattr(agent, "rotate_api_key", None))
+    keys_tried: set[int] = set()
 
     while True:
         try:
-            maybe_response = loop.run_in_executor(None, request_fn)
+            maybe_response = request_fn()
             response = await maybe_response if inspect.isawaitable(maybe_response) else maybe_response
             if response is not None and getattr(response, "choices", None):
                 return response, retry_attempts
@@ -163,7 +187,41 @@ async def _call_with_persistent_retries(
             raise
         except Exception as exc:
             error_text = str(exc).lower()
-            if _is_non_retriable_llm_error(error_text):
+            is_exhausted = _is_key_exhausted_error(error_text)
+            is_auth = _is_non_retriable_llm_error(error_text)
+
+            # Multi-key failover: rotate past a rate-limited / quota-drained /
+            # invalid key to the next one before falling back to plain retry.
+            if can_rotate and (is_exhausted or is_auth):
+                keys_tried.add(getattr(agent, "_key_index", 0))
+                if len(keys_tried) < pool_size:
+                    agent.rotate_api_key()
+                    retry_attempts += 1
+                    print(
+                        f"[!] {stage_label} key failed ({exc}); rotating to next API key "
+                        f"and retrying...",
+                        file=sys.stdout,
+                        flush=True,
+                    )
+                    continue
+                # Every key has now failed in this burst.
+                if is_auth and not is_exhausted:
+                    # All keys are invalid/unauthorized -> nothing to recover.
+                    raise
+                # All keys rate-limited: keep cycling, but back off first so we
+                # never hard-fail on transient quota limits.
+                keys_tried.clear()
+                agent.rotate_api_key()
+                retry_attempts += 1
+                print(
+                    f"[!] {stage_label} all API keys rate-limited; retry {retry_attempts} in 5s...",
+                    file=sys.stdout,
+                    flush=True,
+                )
+                await asyncio.sleep(5)
+                continue
+
+            if is_auth and not is_exhausted:
                 raise
 
             retry_attempts += 1

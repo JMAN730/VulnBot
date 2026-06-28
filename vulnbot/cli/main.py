@@ -1140,6 +1140,188 @@ def scan(
     asyncio.run(_run())
 
 
+@app.command("network-scan")
+def network_scan(
+    target: Optional[str] = typer.Argument(
+        None, help="Target host/IP/CIDR. Defaults to the connected Wi-Fi subnet."
+    ),
+    profile: str = typer.Option(
+        "adaptive",
+        "--profile",
+        help="Network scan profile: adaptive, fast, thorough, stealth",
+    ),
+    ports: Optional[str] = typer.Option(None, "--ports", help="Port range, e.g. 80,443,1-1000"),
+    max_rounds: int = typer.Option(
+        0, "--max-rounds", help="Agent follow-up rounds (0=use configured default)"
+    ),
+    parallel_agents: int = typer.Option(
+        1,
+        "--parallel-agents",
+        min=1,
+        help="Number of child agents to fan out across discovered surfaces (1 disables fan-out)",
+    ),
+    parallel_depth: int = typer.Option(
+        1,
+        "--parallel-depth",
+        min=1,
+        help="Bounded number of child-agent surface discovery waves",
+    ),
+    worker_rounds: int = typer.Option(
+        3,
+        "--worker-rounds",
+        min=1,
+        help="Agent rounds per child surface worker",
+    ),
+    surface_limit: int = typer.Option(
+        20,
+        "--surface-limit",
+        min=1,
+        help="Maximum discovered surfaces considered for child-agent fan-out",
+    ),
+    safe_probes: bool = typer.Option(
+        True,
+        "--safe-probes/--no-safe-probes",
+        help="After nmap, perform only non-destructive verification probes by default",
+    ),
+    prompt: Optional[str] = typer.Option(
+        None, "--prompt", help="Custom natural language prompt (overrides auto-generated prompt)"
+    ),
+    only_port: Optional[int] = typer.Option(
+        None, "--only-port", help="Restrict testing to a single port"
+    ),
+    only_host: Optional[str] = typer.Option(
+        None, "--only-host", help="Restrict testing to a single host"
+    ),
+    blocked_host: Optional[str] = typer.Option(
+        None, "--blocked-host", help="Explicitly blocked host"
+    ),
+    allow_actions: Optional[str] = typer.Option(
+        None, "--allow-actions", help="Comma-separated allowed actions"
+    ),
+    block_actions: Optional[str] = typer.Option(
+        None, "--block-actions", help="Comma-separated blocked actions"
+    ),
+    resume: bool = typer.Option(True, "--resume/--no-resume", help="Resume previous target state"),
+    snapshot: Optional[str] = typer.Option(
+        None, "--snapshot", help="Resume from a specific target snapshot id"
+    ),
+) -> None:
+    """Run nmap-based network scanning and weak-link follow-up."""
+    normalized_profile = profile.strip().lower()
+    if normalized_profile not in {"adaptive", "fast", "thorough", "stealth"}:
+        err_console.print("[!] profile must be one of: adaptive, fast, thorough, stealth")
+        raise typer.Exit(1)
+
+    detected_wifi = None
+    scan_target = target.strip() if target else ""
+    if not scan_target:
+        from vulnbot.agent.network_scan import detect_connected_wifi_target
+
+        try:
+            detected_wifi = detect_connected_wifi_target()
+            scan_target = detected_wifi.cidr
+        except RuntimeError as exc:
+            err_console.print(f"[!] {exc}")
+            raise typer.Exit(1)
+
+    port_hint = f" limited to ports {ports}" if ports else ""
+    follow_up = (
+        "Then prioritize weak links and perform safe, non-destructive verification probes only."
+        if safe_probes
+        else "Then summarize weak links without running follow-up probes."
+    )
+    task_prompt = prompt if prompt else (
+        f"Perform an authorized {normalized_profile} network scan against {scan_target}{port_hint}. "
+        f"Use the nmap_scan tool with profile={normalized_profile}"
+        f"{f' and ports={ports}' if ports else ''}. "
+        f"{follow_up} Record open services and candidate weak-link findings in target state. "
+        "Do not brute force credentials, run destructive payloads, or perform post-exploitation."
+    )
+    task_prompt = _append_cli_constraints_compat(
+        task_prompt,
+        only_port,
+        only_host,
+        None,
+        blocked_host,
+        None,
+    )
+
+    effective_allow_actions = allow_actions
+    effective_block_actions = block_actions
+    if safe_probes and not allow_actions and not block_actions:
+        effective_allow_actions = "recon,scan"
+    task_prompt = _append_action_constraints(
+        task_prompt, effective_allow_actions, effective_block_actions
+    )
+
+    violation = validate_action_constraints("scan", extract_task_constraints(task_prompt))
+    if violation is not None:
+        err_console.print(f"[!] {violation}")
+        raise typer.Exit(1)
+
+    console.print(
+        Panel(
+            f"Target: [bold]{scan_target}[/]\n"
+            + (
+                f"Wi-Fi interface: [bold]{detected_wifi.interface}[/] ({detected_wifi.address})\n"
+                if detected_wifi
+                else ""
+            )
+            +
+            f"Profile: [bold]{normalized_profile}[/]\n"
+            f"Ports: [bold]{ports or 'profile default'}[/]\n"
+            f"Follow-up: [bold]{'safe probes' if safe_probes else 'summary only'}[/]\n"
+            f"Parallel agents: [bold]{parallel_agents}[/]"
+            + (
+                f" (depth {parallel_depth}, {worker_rounds} rounds/worker)"
+                if parallel_agents > 1
+                else ""
+            ),
+            title="Network Scan",
+            border_style="cyan",
+        )
+    )
+
+    async def _run():
+        async def runner(agent, _config):
+            sink = TerminalStreamSink(console, _config.session.show_thinking)
+            rounds = max_rounds if max_rounds > 0 else _config.session.max_rounds
+            if parallel_agents > 1:
+                from vulnbot.agent.parallel_agents import run_parallel_pentest
+
+                def agent_factory():
+                    return agent.__class__(_config, getattr(agent, "mcp_manager", None))
+
+                return await run_parallel_pentest(
+                    agent,
+                    agent_factory=agent_factory,
+                    user_input=task_prompt,
+                    target=scan_target,
+                    discovery_rounds=rounds,
+                    worker_rounds=worker_rounds,
+                    max_agents=parallel_agents,
+                    max_depth=parallel_depth,
+                    surface_limit=surface_limit,
+                    stream_sink=sink,
+                )
+            return await agent.auto_pentest(
+                task_prompt,
+                target=scan_target,
+                max_rounds=rounds,
+                stream_sink=sink,
+            )
+
+        await _run_cli_orchestrated_task(
+            command="network-scan",
+            target=scan_target,
+            resume=resume,
+            snapshot=snapshot,
+            runner=runner,
+        )
+
+    asyncio.run(_run())
+
+
 @app.command()
 def exploit(
     target: str = typer.Argument(..., help="Target host/IP/URL"),

@@ -73,8 +73,8 @@ Suitable for authorized pentests, CTF competitions, security training, and red t
 pip install vulnbot
 
 # Install from source
-git clone https://github.com/Unclecheng-li/VulnClaw.git
-cd VulnClaw
+git clone https://github.com/Unclecheng-li/Vulnbot.git
+cd Vulnbot
 pip install -e .
 ```
 
@@ -150,6 +150,7 @@ $ vulnbot --help
    persistent    🔄 Persistent pentesting (100 rounds/cycle)
    recon         🔍 Reconnaissance only (no exploitation)
    scan          🔎 Vulnerability scanning
+   network-scan  🛰️  Nmap network scan + weak-link follow-up
    exploit       💥 Exploitation phase
    report        📝 Generate report from session JSON
    repl          💬 Start the classic REPL
@@ -171,6 +172,7 @@ $ vulnbot --help
 | `vulnbot persistent <target>` | Persistent pentesting | `vulnbot persistent 192.168.1.1` |
 | `vulnbot recon <target>` | Reconnaissance only | `vulnbot recon target.com` |
 | `vulnbot scan <target>` | Vulnerability scanning | `vulnbot scan target.com --ports 80,443` |
+| `vulnbot network-scan [target]` | Nmap scan, weak-link ranking, safe follow-up probes. Defaults to connected Wi-Fi subnet. Use `--parallel-agents N` for bounded worker fan-out across discovered surfaces. | `vulnbot network-scan --profile fast --parallel-agents 3` |
 | `vulnbot exploit <target>` | Exploitation phase | `vulnbot exploit target.com --cve CVE-2024-1234` |
 | `vulnbot report <session>` | Generate report from session | `vulnbot report session_xxx.json` |
 | `vulnbot config set <key> <value>` | Set a config value | `vulnbot config set llm.api_key sk-xxx` |
@@ -336,6 +338,11 @@ vulnbot recon 192.168.1.100
 
 # Vulnerability scan (specify ports)
 vulnbot scan 192.168.1.100 --ports 80,443,8080
+
+# Network scan with weak-link prioritization (safe probes by default)
+vulnbot network-scan --profile adaptive
+vulnbot network-scan 192.168.1.100 --profile thorough --ports 1-1000
+vulnbot network-scan --profile fast --parallel-agents 3 --parallel-depth 2 --worker-rounds 3
 
 # Exploitation (specify CVE)
 vulnbot exploit 192.168.1.100 --cve CVE-2024-1234 --cmd id
@@ -592,12 +599,12 @@ vulnbot config set session.show_thinking false  # hide thinking process (also in
 
 | Variable                                        | Description              |
 | ----------------------------------------------- | ---------------------- |
-| `VULNCLAW_LLM_PROVIDER`                       | LLM provider name      |
-| `VULNCLAW_LLM_API_KEY`                        | API key                |
-| `VULNCLAW_LLM_BASE_URL`                       | API base URL           |
-| `VULNCLAW_LLM_MODEL`                          | Model name             |
-| `VULNCLAW_SESSION__MAX_ROUNDS`                | Max autonomous rounds  |
-| `VULNCLAW_SESSION__STALE_ROUNDS_THRESHOLD`    | Dead-loop threshold    |
+| `VULNBOT_LLM_PROVIDER`                       | LLM provider name      |
+| `VULNBOT_LLM_API_KEY`                        | API key                |
+| `VULNBOT_LLM_BASE_URL`                       | API base URL           |
+| `VULNBOT_LLM_MODEL`                          | Model name             |
+| `VULNBOT_SESSION_MAX_ROUNDS`                 | Max autonomous rounds  |
+| `VULNBOT_SESSION_SHOW_THINKING`              | Show or hide thinking output |
 
 Priority: **Environment Variables > Config File > Built-in Defaults**
 

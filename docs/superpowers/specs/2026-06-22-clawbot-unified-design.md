@@ -9,14 +9,14 @@
 VulnBot merges two existing MIT-licensed AI pentest CLIs into one shippable
 product:
 
-- **VulnClaw** (base) — supplies the agent core, MCP toolchain, markdown skill
+- **Vulnbot** (base) — supplies the agent core, MCP toolchain, markdown skill
   orchestration, target-state store, config, and CLI/TUI/web surfaces.
 - **HackBot** (capability donor) — supplies deep intelligence modules
   (CVE/NVD, OSINT, topology, compliance/MITRE, findings risk-scoring/diff,
   remediation, PDF reporting).
 
-The merge keeps **VulnClaw's architecture intact** and ports a curated subset of
-HackBot's modules into a new `intel/` subpackage, rewritten to VulnClaw
+The merge keeps **Vulnbot's architecture intact** and ports a curated subset of
+HackBot's modules into a new `intel/` subpackage, rewritten to Vulnbot
 conventions and exposed to the agent as **native builtin tools** plus
 **methodology skills**.
 
@@ -26,11 +26,11 @@ conventions and exposed to the agent as **native builtin tools** plus
 |---|---|---|
 | Goal | Ship a real, maintained product | Drives clean deps, attribution, naming |
 | Combine level | Level 2 — single unified package | Not a loose adapter shim; one installable tool |
-| Base | VulnClaw | Cleaner agent kernel; grafting capabilities onto it is cheaper than the reverse |
+| Base | Vulnbot | Cleaner agent kernel; grafting capabilities onto it is cheaper than the reverse |
 | Migration | C — selective extraction & rewrite | One coherent codebase; no inherited HackBot dep tree |
-| Agent integration | Native `builtin_tools` + markdown skills | Fastest path, no IPC; matches VulnClaw's tool model |
+| Agent integration | Native `builtin_tools` + markdown skills | Fastest path, no IPC; matches Vulnbot's tool model |
 | Branding | New combined name | Clean break, both upstreams credited |
-| Findings store | VulnClaw `target_state` is canonical | One store, not two; HackBot scoring/diff ported as enrichment |
+| Findings store | Vulnbot `target_state` is canonical | One store, not two; HackBot scoring/diff ported as enrichment |
 
 ## 3. v1 scope
 
@@ -47,13 +47,13 @@ campaigns, plugin system.
 
 ```
 vulnbot/
-  agent/          VulnClaw, unchanged — loop, anti_loop, constraint_policy,
+  agent/          Vulnbot, unchanged — loop, anti_loop, constraint_policy,
                   token_counter, llm_client, builtin_tools (extended registry)
-  mcp/            VulnClaw, unchanged — lifecycle, registry, router
-  skills/         VulnClaw skills + NEW methodology skills:
+  mcp/            Vulnbot, unchanged — lifecycle, registry, router
+  skills/         Vulnbot skills + NEW methodology skills:
                     cve-triage.md, compliance-mapping.md, osint-recon (exists),
                     topology-mapping.md
-  intel/          NEW — ported HackBot modules, VulnClaw conventions:
+  intel/          NEW — ported HackBot modules, Vulnbot conventions:
       cve.py            NVD/CVE lookup + exploit-PoC discovery (httpx)
       osint.py          subdomain / DNS / WHOIS / email / tech fingerprint
       topology.py       nmap/masscan output -> graph data
@@ -61,25 +61,25 @@ vulnbot/
       findings.py       risk scoring + remediation status (on target_state)
       remediation.py    remediation advisor
       tools.py          builtin-tool schemas + dispatchers for the above
-  report/         VulnClaw pipeline + NEW pdf_exporter.py
-  target_state/   VulnClaw — canonical findings store (enriched by intel/findings)
-  config/         VulnClaw pydantic settings + NEW intel keys/toggles
-  cli/  web/      VulnClaw surfaces, unchanged
+  report/         Vulnbot pipeline + NEW pdf_exporter.py
+  target_state/   Vulnbot — canonical findings store (enriched by intel/findings)
+  config/         Vulnbot pydantic settings + NEW intel keys/toggles
+  cli/  web/      Vulnbot surfaces, unchanged
 ```
 
 The rename `vulnclaw/ -> vulnbot/` is mechanical (package dir + imports +
 `pyproject` name + entrypoint + config dir `~/.vulnclaw` -> `~/.vulnbot`).
 
 **Physical location:** the new product lives in a fresh sibling directory
-`C:\Users\jo\github\vulnbot` as its own git repo, seeded by copying the VulnClaw
-working tree (no `.git`). Neither upstream clone (`hackbot/`, `VulnClaw/`) is
+`C:\Users\jo\github\vulnbot` as its own git repo, seeded by copying the Vulnbot
+working tree (no `.git`). Neither upstream clone (`hackbot/`, `Vulnbot/`) is
 mutated by the merge — they remain read-only donors. HackBot modules are copied
 file-by-file from the `hackbot/` clone during their port steps.
 
 ## 5. Component design
 
 ### 5.1 Intel tool registration & dispatch
-VulnClaw builds its OpenAI tool list by appending schema dicts (in
+Vulnbot builds its OpenAI tool list by appending schema dicts (in
 `agent/builtin_tools.py`) and dispatches calls by name in
 `execute_mcp_tool(agent, tool_name, args)`. Each intel module exposes pure
 async functions; `intel/tools.py` provides:
@@ -96,22 +96,22 @@ with `intel_tool_schemas()`, and add an `if tool_name in INTEL_TOOLS` branch in
 to the target, no host-changing actions).
 
 ### 5.2 Findings reconciliation
-VulnClaw's `target_state/store.py` persists findings per target (sha256-keyed
+Vulnbot's `target_state/store.py` persists findings per target (sha256-keyed
 dir under `TARGETS_DIR`), with `planner.compute_finding_confidence` and
 semantic dedup via `finding_similarity`. HackBot's `vulndb.py` (SQLite) is **not
 ported as a store**. Instead `intel/findings.py` provides pure functions that
-operate on VulnClaw finding dicts:
+operate on Vulnbot finding dicts:
 
 - `score_risk(finding) -> RiskScore` — CVSS/severity-derived risk (ported logic).
 - `annotate_compliance(finding) -> finding` — attach PCI/NIST/OWASP/ISO + ATT&CK.
 - `diff_assessments(old_state, new_state) -> DiffReport` — new/fixed/persistent,
-  operating on two `target_state` snapshots (VulnClaw already keeps snapshots).
+  operating on two `target_state` snapshots (Vulnbot already keeps snapshots).
 
 No second database. Risk/remediation/diff are computed over the canonical store.
 
 ### 5.3 Reporting
 HackBot's `pdf_report.py` becomes `report/pdf_exporter.py`: a function
-`export_pdf(report_model, out_path)` that consumes VulnClaw's existing report
+`export_pdf(report_model, out_path)` that consumes Vulnbot's existing report
 model (from `report/generator.py`) — not a parallel report builder. `reportlab`,
 `matplotlib`, `Pillow` move to an optional `[pdf]` extra; the exporter raises a
 clear "install vulnbot[pdf]" error if imported without the extra.
@@ -125,17 +125,17 @@ dot-notation setter (`vulnbot config set intel.nvd_api_key ...`).
 
 ## 6. Dependencies
 
-Base = VulnClaw's current set (typer, rich, prompt_toolkit, httpx, openai,
+Base = Vulnbot's current set (typer, rich, prompt_toolkit, httpx, openai,
 pydantic, pydantic-settings, pyyaml, toml, jinja2, textual, beautifulsoup4,
 lxml, pycryptodome). Python floor **3.10+**.
 
 New optional extras:
 - `[pdf]` — reportlab, matplotlib, Pillow
 - `[osint]` — dnspython, shodan, censys (beautifulsoup4/lxml already in base)
-- `[kb]`, `[web]`, `[dev]` — unchanged from VulnClaw
+- `[kb]`, `[web]`, `[dev]` — unchanged from Vulnbot
 
 `python-nmap` is **not** added; `topology.py` parses nmap/masscan XML directly
-with stdlib `xml.etree` (VulnClaw already does this in `builtin_tools`).
+with stdlib `xml.etree` (Vulnbot already does this in `builtin_tools`).
 
 All ported HackBot HTTP code is rewritten from `requests`/`aiohttp` to `httpx`.
 
@@ -152,7 +152,7 @@ The agent loop is unchanged. Intel tools are just new callable tools:
 
 ## 8. Error handling
 
-- Intel tools return VulnClaw's structured tool-result convention (error in the
+- Intel tools return Vulnbot's structured tool-result convention (error in the
   result string, never raise into the agent loop).
 - All network calls use httpx with explicit timeouts and bounded retries.
 - Missing API key -> degraded-mode result message, not a failure.
@@ -160,17 +160,17 @@ The agent loop is unchanged. Intel tools are just new callable tools:
 
 ## 9. Testing
 
-- Unit tests per ported module under VulnClaw's `pytest` + `asyncio_mode=auto`:
+- Unit tests per ported module under Vulnbot's `pytest` + `asyncio_mode=auto`:
   mock httpx for `cve`/`osint`; golden-file tests for `compliance` mapping and
   `findings` risk scoring; a smoke test for `pdf_exporter` (skipped without `[pdf]`).
 - One agent integration test: run the loop with intel tools registered but
   network stubbed, assert tool dispatch + finding enrichment + report render.
-- CI: ruff + pytest on 3.10–3.13 (carry VulnClaw's config forward).
+- CI: ruff + pytest on 3.10–3.13 (carry Vulnbot's config forward).
 
 ## 10. Licensing & attribution
 
 Both projects are MIT. Ship a top-level `NOTICE` crediting **Yashab Alam**
-(HackBot) and **UncleC** (VulnClaw); retain both upstream LICENSE texts;
+(HackBot) and **UncleC** (Vulnbot); retain both upstream LICENSE texts;
 README credits both upstreams and links their repos. Each ported file carries a
 header noting its HackBot origin.
 
@@ -178,15 +178,15 @@ header noting its HackBot origin.
 
 | Risk | Mitigation |
 |---|---|
-| Findings model mismatch between the two projects | §5.2 — single canonical store; intel logic adapts to VulnClaw dicts, no second DB |
-| HackBot `requests`/`aiohttp` idioms leak in | Migration C rewrites each module to httpx + VulnClaw conventions during port |
+| Findings model mismatch between the two projects | §5.2 — single canonical store; intel logic adapts to Vulnbot dicts, no second DB |
+| HackBot `requests`/`aiohttp` idioms leak in | Migration C rewrites each module to httpx + Vulnbot conventions during port |
 | Dep bloat from PDF/OSINT libs | Optional extras; core install stays light |
 | Rename churn breaks imports | Mechanical rename done as its own first step with full test pass before any port |
 | Scope creep (GUI/Telegram/zeroday) | Explicitly deferred to future specs |
 
 ## 12. Sequencing (each becomes a plan step)
 
-0. **Scaffold & rename** — fork VulnClaw into the new package, rename to
+0. **Scaffold & rename** — fork Vulnbot into the new package, rename to
    `vulnbot`, config dir, entrypoint, NOTICE/attribution; full test pass.
 1. **Tool plumbing** — `intel/tools.py` skeleton + the two `builtin_tools.py`
    seams + constraint registration; one trivial intel tool end-to-end.
@@ -213,7 +213,7 @@ header noting its HackBot origin.
 The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\vulnbot`
 (fresh git repo, branch `master`). Decisions made during execution:
 
-- **Seeded from VulnClaw's clean committed HEAD** (`a3f364c`), not its dirty
+- **Seeded from Vulnbot's clean committed HEAD** (`a3f364c`), not its dirty
   working tree — the working tree had deleted skill-reference files and
   in-progress edits that broke tests. Clean HEAD gives a reproducible base.
 - **Minimal namespace rename only.** Renamed the import package `vulnclaw ->
@@ -233,11 +233,11 @@ The foundation (spec §12 steps 0–1) is implemented in `C:\Users\jo\github\vul
   (no network).
 - **Verification:** `pip install -e .[dev]` + `vulnbot` import OK; **532 passed,
   1 skipped**. `vulnbot/intel` is ruff-clean; **5 pre-existing upstream ruff nits**
-  remain in VulnClaw files (cli/tui_textual, mcp/router, skills/crypto_tools,
+  remain in Vulnbot files (cli/tui_textual, mcp/router, skills/crypto_tools,
   skills/dispatcher, tests/test_basic) — tracked for the cleanup/rebranding sweep.
 - **Known pre-existing failure (NOT from the merge):**
   `tests/test_web.py::...test_web_target_service_lists_targets` fails because
-  VulnClaw's finding-dedup drops a second empty-ID finding during target-state
+  Vulnbot's finding-dedup drops a second empty-ID finding during target-state
   save (`[DEDUP] Skipping duplicate finding`). The code is byte-identical to
   upstream modulo the namespace rename; it reproduces on upstream HEAD under
   Python 3.14.4 + pydantic 2.13.4. Tracked as an upstream/compat issue, out of
@@ -269,14 +269,14 @@ Integration progress:
 - **Wheel build (local) blocked by Windows Defender** quarantining offensive-content
   skill docs (`file-upload-to-rce.md`, `tools-reference-02-reverse-shell.md`, …)
   mid-build — reads intermittently fail with Errno 22. These are legitimate pentest
-  references inherited from VulnClaw (all 199 skill docs intact in the committed
+  references inherited from Vulnbot (all 199 skill docs intact in the committed
   tree); hatchling's include config is correct and builds fine on hosts without
   aggressive AV (CI/Linux). **Not a packaging defect** — an environment issue. CI
   should add a Defender exclusion for the repo or run on Linux.
 
-Rebranding sweep: VulnClaw→VulnBot across python/tests/frontend/i18n/static +
+Rebranding sweep: Vulnbot→VulnBot across python/tests/frontend/i18n/static +
 config dir `~/.vulnbot` + env prefix `VULNBOT_` + `VulnBotConfig`. Upstream
-attribution (VulnClaw repo URL, NOTICE, README) preserved. Suite still **604
+attribution (Vulnbot repo URL, NOTICE, README) preserved. Suite still **604
 passed, 1 skipped**.
 
 **8 intel tools live:** `cve_lookup`, `osint_recon`, `topology_build`,

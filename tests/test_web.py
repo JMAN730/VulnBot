@@ -1146,7 +1146,10 @@ class TestWebApp:
         assert result.exit_code == 0
         assert "0.0.0.0" in result.output
 
-    def test_web_target_preview_and_diff_endpoints(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_web_target_preview_and_diff_endpoints(self, monkeypatch):
+        import httpx
+
         import vulnbot.web.app as web_app
 
         if not web_app.FASTAPI_AVAILABLE:
@@ -1176,13 +1179,15 @@ class TestWebApp:
             )(),
         )
 
-        app = web_app.create_app()
-        client = pytest.importorskip("fastapi.testclient").TestClient(app)
+        transport = httpx.ASGITransport(app=web_app.create_app())
 
-        preview = client.get("/api/target-preview/example.com")
-        assert preview.status_code == 200
-        assert preview.json()["schema_version"] == 2
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            preview = await client.get("/api/target-preview/example.com")
+            assert preview.status_code == 200
+            assert preview.json()["schema_version"] == 2
 
-        diff = client.get("/api/target-diff/example.com", params={"from_snapshot_id": "snap_a"})
-        assert diff.status_code == 200
-        assert diff.json()["from_snapshot_id"] == "snap_a"
+            diff = await client.get(
+                "/api/target-diff/example.com", params={"from_snapshot_id": "snap_a"}
+            )
+            assert diff.status_code == 200
+            assert diff.json()["from_snapshot_id"] == "snap_a"

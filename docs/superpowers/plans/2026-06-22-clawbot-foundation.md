@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up the `vulnbot` package as a clean fork of VulnClaw (renamed, tests green, attribution in place) with the `intel/` tool-plumbing seam wired into the agent, ready for per-module ports.
+**Goal:** Stand up the `vulnbot` package as a clean fork of Vulnbot (renamed, tests green, attribution in place) with the `intel/` tool-plumbing seam wired into the agent, ready for per-module ports.
 
-**Architecture:** Copy the VulnClaw working tree into a fresh sibling repo `C:\Users\jo\github\vulnbot`, mechanically rename `vulnclaw` -> `vulnbot` (package, imports, entrypoint, config dir), then add an `intel/` subpackage whose tool schemas/dispatch are registered at two seams in `agent/builtin_tools.py`. A stub `cve_lookup` tool proves the dispatch path end-to-end via TDD; real modules replace stubs in later plans.
+**Architecture:** Copy the Vulnbot working tree into a fresh sibling repo `C:\Users\jo\github\vulnbot`, mechanically rename `vulnclaw` -> `vulnbot` (package, imports, entrypoint, config dir), then add an `intel/` subpackage whose tool schemas/dispatch are registered at two seams in `agent/builtin_tools.py`. A stub `cve_lookup` tool proves the dispatch path end-to-end via TDD; real modules replace stubs in later plans.
 
-**Tech Stack:** Python 3.10+, hatchling, typer, httpx, pydantic, pytest (`asyncio_mode=auto`), ruff. Source donors (read-only): `C:\Users\jo\github\VulnClaw`, `C:\Users\jo\github\hackbot`.
+**Tech Stack:** Python 3.10+, hatchling, typer, httpx, pydantic, pytest (`asyncio_mode=auto`), ruff. Source donors (read-only): `C:\Users\jo\github\Vulnbot`, `C:\Users\jo\github\hackbot`.
 
 **Source-of-truth spec:** `docs/superpowers/specs/2026-06-22-vulnbot-unified-design.md` (in the hackbot repo).
 
@@ -26,16 +26,16 @@
 
 ---
 
-## Task 1: Scaffold the vulnbot repo from VulnClaw
+## Task 1: Scaffold the vulnbot repo from Vulnbot
 
 **Files:**
-- Create: `C:\Users\jo\github\vulnbot\` (entire tree, copied from VulnClaw)
+- Create: `C:\Users\jo\github\vulnbot\` (entire tree, copied from Vulnbot)
 
-- [ ] **Step 1: Copy the VulnClaw working tree (excluding git/caches) to the new sibling dir**
+- [ ] **Step 1: Copy the Vulnbot working tree (excluding git/caches) to the new sibling dir**
 
 Run (Bash tool):
 ```bash
-SRC=/c/Users/jo/github/VulnClaw
+SRC=/c/Users/jo/github/Vulnbot
 DST=/c/Users/jo/github/vulnbot
 mkdir -p "$DST"
 rsync -a --exclude='.git' --exclude='__pycache__' --exclude='.pytest_cache' \
@@ -51,7 +51,7 @@ Expected: top-level listing shows `vulnclaw/  tests/  pyproject.toml  README.md 
 
 Run:
 ```bash
-cd /c/Users/jo/github/vulnbot && git init -q && git add -A && git commit -q -m "chore: seed VulnBot from VulnClaw working tree" && git branch --show-current
+cd /c/Users/jo/github/vulnbot && git init -q && git add -A && git commit -q -m "chore: seed VulnBot from Vulnbot working tree" && git branch --show-current
 ```
 Expected: prints `master` or `main`; one commit exists.
 
@@ -75,7 +75,7 @@ Expected: `vulnbot/__init__.py` exists.
 Run (covers `from vulnclaw`, `import vulnclaw`, `vulnclaw.`, the env var, and the config dir):
 ```bash
 cd /c/Users/jo/github/vulnbot
-grep -rl --include='*.py' --include='*.toml' --include='*.md' 'vulnclaw\|VulnClaw\|VULNCLAW' . | while read -r f; do
+grep -rl --include='*.py' --include='*.toml' --include='*.md' 'vulnclaw\|Vulnbot\|VULNCLAW' . | while read -r f; do
   sed -i 's/from vulnclaw/from vulnbot/g; s/import vulnclaw/import vulnbot/g; s/\bvulnclaw\./vulnbot./g; s/VULNCLAW_CONFIG_DIR/VULNBOT_CONFIG_DIR/g; s/\.vulnclaw\b/.vulnbot/g' "$f"
 done
 grep -rn 'from vulnclaw\|import vulnclaw\|vulnclaw\.' --include='*.py' vulnbot | head
@@ -118,7 +118,7 @@ Expected: `ok`.
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Editable install into VulnClaw's venv (or a fresh one)**
+- [ ] **Step 1: Editable install into Vulnbot's venv (or a fresh one)**
 
 Run (PowerShell tool):
 ```powershell
@@ -136,7 +136,7 @@ Run:
 cd C:\Users\jo\github\vulnbot
 .\.venv\Scripts\python.exe -m pytest -q
 ```
-Expected: same pass count as VulnClaw upstream (no import errors from the rename). If any test hard-codes `vulnclaw` paths/config dir, fix those tests to `vulnbot` and note it.
+Expected: same pass count as Vulnbot upstream (no import errors from the rename). If any test hard-codes `vulnclaw` paths/config dir, fix those tests to `vulnbot` and note it.
 
 - [ ] **Step 3: Verify the CLI entrypoint**
 
@@ -168,22 +168,22 @@ VulnBot
 =======
 VulnBot is a derivative work combining two MIT-licensed projects:
 
-  VulnClaw  — Copyright (c) UncleC   — https://github.com/Unclecheng-li/VulnClaw
+  Vulnbot  — Copyright (c) UncleC   — https://github.com/Unclecheng-li/Vulnbot
   HackBot   — Copyright (c) Yashab Alam — https://github.com/yashab-cyber/hackbot
 
-VulnBot uses VulnClaw as its base (agent core, MCP toolchain, skills, CLI/TUI/web)
+VulnBot uses Vulnbot as its base (agent core, MCP toolchain, skills, CLI/TUI/web)
 and ports selected intelligence modules from HackBot (CVE, OSINT, topology,
 compliance/MITRE, findings scoring, remediation, PDF reporting).
 
 The full text of each upstream MIT license is retained below.
 ```
-Append both upstream LICENSE texts under this header (read `VulnClaw/LICENSE` and `hackbot/LICENSE`).
+Append both upstream LICENSE texts under this header (read `Vulnbot/LICENSE` and `hackbot/LICENSE`).
 
 - [ ] **Step 2: Add a credits block near the top of README_EN.md**
 
 Insert after the badges:
 ```markdown
-> **VulnBot** merges [VulnClaw](https://github.com/Unclecheng-li/VulnClaw) (base)
+> **VulnBot** merges [Vulnbot](https://github.com/Unclecheng-li/Vulnbot) (base)
 > and intelligence modules from [HackBot](https://github.com/yashab-cyber/hackbot).
 > Both are MIT-licensed; see [`NOTICE`](NOTICE).
 ```
