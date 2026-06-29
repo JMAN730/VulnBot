@@ -204,6 +204,45 @@ class TestAgentAutoSave:
         assert saved["count"] == 0
 
 
+class TestPriorRecon:
+    """Test reuse-of-prior-recon helpers on SessionState."""
+
+    def test_has_prior_recon_false_on_empty(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        assert state.has_prior_recon() is False
+
+    def test_has_prior_recon_true_with_recon_assets(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        state.recon_data["network_services"] = [{"port": 80, "service": "http"}]
+        assert state.has_prior_recon() is True
+
+    def test_has_prior_recon_true_when_phase_past_recon(self):
+        from vulnbot.agent.context import PentestPhase, SessionState
+
+        state = SessionState(target="https://example.com")
+        state.phase = PentestPhase.EXPLOITATION
+        assert state.has_prior_recon() is True
+
+    def test_has_prior_recon_ignores_empty_lists(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        state.recon_data["subdomains"] = []
+        assert state.has_prior_recon() is False
+
+    def test_mark_recon_complete_from_data(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        assert state.is_recon_complete() is False
+        state.mark_recon_complete_from_data()
+        assert state.is_recon_complete() is True
+
+
 class TestTargetState:
     """Test target-level resume state."""
 

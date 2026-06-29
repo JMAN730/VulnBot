@@ -779,6 +779,42 @@ class SessionState(BaseModel):
         if dimension in self.recon_dimensions_completed:
             self.recon_dimensions_completed[dimension] = True
 
+    def has_prior_recon(self) -> bool:
+        """Whether this restored session already holds meaningful recon.
+
+        True when recon_data contains real assets in any known category, or
+        when the phase has already advanced past Recon. Used to decide whether
+        a resumed run should reuse recon instead of re-scanning.
+        """
+        recon_categories = (
+            "network_services",
+            "network_scans",
+            "subdomains",
+            "paths",
+            "params",
+        )
+        for category in recon_categories:
+            value = self.recon_data.get(category)
+            if isinstance(value, list) and value:
+                return True
+        return self.phase in (
+            PentestPhase.VULN_DISCOVERY,
+            PentestPhase.EXPLOITATION,
+            PentestPhase.POST_EXPLOITATION,
+            PentestPhase.REPORTING,
+        )
+
+    def mark_recon_complete_from_data(self) -> None:
+        """Mark the core recon dimensions complete when reusing prior recon.
+
+        Sets server/website/domain so is_recon_complete() is satisfied without
+        forcing fresh recon rounds. Personnel (dimension 4) is left untouched
+        because is_recon_complete() only checks it when recon_dimension4_active.
+        """
+        for dimension in ("server", "website", "domain"):
+            if dimension in self.recon_dimensions_completed:
+                self.recon_dimensions_completed[dimension] = True
+
     def is_recon_complete(self) -> bool:
         """Check if all active recon dimensions have been completed at least once.
 
