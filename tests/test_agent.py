@@ -1941,6 +1941,37 @@ class TestAutoPentestResumeAware:
         assert agent.runtime.reuse_recon is False
         assert agent.context.state.phase == PentestPhase.RECON
 
+    async def test_reuse_honors_saved_phase_past_recon(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+        agent.context.state.advance_phase(PentestPhase.EXPLOITATION)
+
+        await agent.auto_pentest("continue the pentest", target="https://example.com", max_rounds=1)
+
+        assert agent.runtime.reuse_recon is True
+        assert agent.context.state.phase == PentestPhase.EXPLOITATION
+
+    async def test_fresh_recon_resets_completed_dimensions(self, monkeypatch):
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+        agent.context.state.recon_dimensions_completed = {
+            "server": True,
+            "website": True,
+            "domain": True,
+            "personnel": True,
+        }
+
+        await agent.auto_pentest(
+            "continue", target="https://example.com", max_rounds=1, fresh_recon=True
+        )
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.recon_dimensions_completed["server"] is False
+
 
 class TestRoundContextRecon:
     """Test concrete recon rendering and reuse directive in round context."""
