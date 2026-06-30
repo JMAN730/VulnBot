@@ -1872,3 +1872,71 @@ class TestResetRuntimePreservesRecon:
         }
         agent._reset_runtime_state(user_input="recon", detected_phase=PentestPhase.RECON)
         assert agent.context.state.recon_dimensions_completed["server"] is False
+
+
+class TestAutoPentestResumeAware:
+    """Test that auto_pentest reuses recon instead of resetting to Recon."""
+
+    def _make_agent(self, monkeypatch):
+        from vulnbot.agent.core import AgentCore
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = AgentCore(VulnBotConfig())
+
+        async def fake_call_llm_auto(_agent, _system, _ctx, stream_sink=None):
+            return "Nothing further. [DONE]"
+
+        import vulnbot.agent.loop_controller as lc
+
+        monkeypatch.setattr(lc, "call_llm_auto", fake_call_llm_auto)
+        return agent
+
+    async def test_reuses_recon_starts_in_vuln_discovery(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+
+        await agent.auto_pentest("continue the pentest", target="https://example.com", max_rounds=1)
+
+        assert agent.runtime.reuse_recon is True
+        assert agent.runtime.is_recon_phase is False
+        assert agent.context.state.phase == PentestPhase.VULN_DISCOVERY
+
+    async def test_fresh_recon_keyword_forces_recon(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+
+        await agent.auto_pentest("rescan example.com", target="https://example.com", max_rounds=1)
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.phase == PentestPhase.RECON
+
+    async def test_fresh_recon_flag_forces_recon(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+
+        await agent.auto_pentest(
+            "continue", target="https://example.com", max_rounds=1, fresh_recon=True
+        )
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.phase == PentestPhase.RECON
+
+    async def test_no_prior_recon_starts_in_recon(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+
+        await agent.auto_pentest("pentest example.com", target="https://example.com", max_rounds=1)
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.phase == PentestPhase.RECON

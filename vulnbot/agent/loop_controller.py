@@ -9,6 +9,7 @@ from typing import Any, Callable
 from vulnbot.agent.constraint_policy import validate_phase_transition
 from vulnbot.agent.context import PentestPhase
 from vulnbot.agent.ctf_mode import update_ctf_state
+from vulnbot.agent.input_analysis import wants_fresh_recon
 from vulnbot.agent.llm_client import call_llm_auto
 from vulnbot.agent.runtime_state import AgentResult, PersistentCycleResult
 
@@ -23,19 +24,37 @@ async def auto_pentest(
     on_step: Callable[[int, AgentResult], None] | None = None,
     *,
     stream_sink: Any = None,
+    fresh_recon: bool = False,
 ) -> list[AgentResult]:
     results: list[AgentResult] = []
 
     detected_target = target or agent._detect_target(user_input)
-    detected_phase = agent._detect_phase(user_input) or PentestPhase.RECON
-
     if detected_target:
         agent.context.state.target = detected_target
-    if detected_phase:
-        agent.context.state.advance_phase(detected_phase)
+
+    detected_phase = agent._detect_phase(user_input)
+    force_fresh = fresh_recon or wants_fresh_recon(user_input)
+    reuse_recon = (not force_fresh) and agent.context.state.has_prior_recon()
+
+    if reuse_recon:
+        saved_phase = agent.context.state.phase
+        if detected_phase and detected_phase != PentestPhase.RECON:
+            target_phase = detected_phase
+        elif saved_phase not in (PentestPhase.IDLE, PentestPhase.RECON):
+            target_phase = saved_phase
+        else:
+            target_phase = PentestPhase.VULN_DISCOVERY
+        agent.context.state.mark_recon_complete_from_data()
+    else:
+        target_phase = detected_phase or PentestPhase.RECON
+
+    agent.context.state.advance_phase(target_phase)
 
     agent.context.add_user_message(user_input)
-    agent._reset_runtime_state(user_input=user_input, detected_phase=detected_phase)
+    agent._reset_runtime_state(
+        user_input=user_input, detected_phase=target_phase, preserve_recon=reuse_recon
+    )
+    agent.runtime.reuse_recon = reuse_recon
 
     for round_num in range(1, max_rounds + 1):
         result = AgentResult()
@@ -196,6 +215,7 @@ async def persistent_pentest(
     *,
     # stream_sink is passed through from core.py to agent.auto_pentest() for streaming output.
     stream_sink: Any = None,
+    fresh_recon: bool = False,
 ) -> list[PersistentCycleResult]:
     cycle_results: list[PersistentCycleResult] = []
 
@@ -246,6 +266,7 @@ async def persistent_pentest(
                 on_step=_make_step_callback(cycle_num),
                 # Pass stream_sink through so persistent mode supports streaming output.
                 stream_sink=stream_sink,
+                fresh_recon=fresh_recon if cycle_num == 1 else False,
             )
             cycle_results_list = results if results else cycle_results_list
         except KeyboardInterrupt:

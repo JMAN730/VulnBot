@@ -359,9 +359,13 @@ class AgentCore:
         on_step: Optional[Callable[[int, AgentResult], None]] = None,
         *,
         stream_sink: Optional["StreamSink"] = None,
+        fresh_recon: bool = False,
     ) -> list[AgentResult]:
         """Autonomous penetration test loop."""
-        return await run_auto_pentest(self, user_input, target, max_rounds, on_step, stream_sink=stream_sink)
+        return await run_auto_pentest(
+            self, user_input, target, max_rounds, on_step,
+            stream_sink=stream_sink, fresh_recon=fresh_recon,
+        )
 
     def _build_round_context(self, round_num: int, max_rounds: int) -> str:
         """Build context string for the current round in auto loop."""
@@ -381,6 +385,7 @@ class AgentCore:
         *,
         # stream_sink is passed from main.py down to the streaming LLM implementation.
         stream_sink: Optional["StreamSink"] = None,
+        fresh_recon: bool = False,
     ) -> list["PersistentCycleResult"]:
         """Persistent penetration test - runs cycles of auto_pentest until stopped."""
         return await run_persistent_pentest(
@@ -393,6 +398,7 @@ class AgentCore:
             on_cycle_step,
             on_cycle_complete,
             stream_sink=stream_sink,
+            fresh_recon=fresh_recon,
         )
 
     def _detect_phase_from_output(self, output: str) -> Optional[PentestPhase]:
