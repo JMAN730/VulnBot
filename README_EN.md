@@ -48,7 +48,7 @@ VulnBot executes:
   Round 4:  Reporting → Structured report + Python PoC script
 ```
 
-<img width="1148" height="642" alt="image" src="https://github.com/user-attachments/assets/576e1cf6-25da-4969-864b-40e77d020dbf" />
+<img width="780" alt="VulnBot terminal demo" src="docs/assets/terminal-demo.png" />
 
 Suitable for authorized pentests, CTF competitions, security training, and red team operations.
 
