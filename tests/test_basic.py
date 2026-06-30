@@ -7,14 +7,17 @@ def test_import_vulnclaw():
     """Test that the main package can be imported."""
     from pathlib import Path
 
-    import tomllib
-
     import vulnbot
 
-    # Read version from pyproject.toml to avoid hardcoding
+    # Read version from pyproject.toml to avoid hardcoding (tomllib needs
+    # Python 3.11+, but this project supports 3.10, so parse the line directly)
     pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-    expected_version = pyproject["project"]["version"]
+    version_line = next(
+        line
+        for line in pyproject_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("version = ")
+    )
+    expected_version = version_line.split('"')[1]
 
     assert vulnbot.__version__ == expected_version
 
