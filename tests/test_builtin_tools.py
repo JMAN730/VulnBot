@@ -249,3 +249,50 @@ class TestBuiltinMcpExecution:
         assert "192.168.56.10:23" in result
         assert agent.session_state.recon_data["network_services"][0]["service"] == "telnet"
         assert agent.session_state.findings[0].vuln_type == "unencrypted_protocol"
+
+    async def test_execute_nmap_thorough_without_root_skips_os_scan(self, monkeypatch):
+        import subprocess
+
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        xml = """<?xml version="1.0"?>
+<nmaprun>
+  <host>
+    <status state="up"/>
+    <address addr="192.168.56.10" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="80">
+        <state state="open"/>
+        <service name="http" product="nginx"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>
+"""
+        captured_cmds: list[list[str]] = []
+
+        def fake_run(cmd, **kwargs):
+            captured_cmds.append(list(cmd))
+            return subprocess.CompletedProcess(cmd, 0, xml, "")
+
+        agent = DummyAgent()
+        from vulnbot.agent.context import SessionState
+
+        agent.session_state = SessionState(target="192.168.56.10")
+        monkeypatch.setattr(builtin_tools.shutil, "which", lambda name: "/usr/bin/nmap")
+        monkeypatch.setattr(
+            builtin_tools,
+            "nmap_has_raw_socket_access",
+            lambda: False,
+        )
+        monkeypatch.setattr(builtin_tools.subprocess, "run", fake_run)
+
+        result = await builtin_tools.execute_nmap(
+            agent,
+            {"target": "192.168.56.10", "profile": "thorough"},
+        )
+
+        assert captured_cmds
+        assert "-O" not in captured_cmds[0]
+        assert "skipped OS fingerprinting" in result
+        assert "192.168.56.10" in result

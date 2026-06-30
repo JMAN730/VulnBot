@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import os
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,6 +20,69 @@ from vulnbot.agent.context import (
 )
 
 NETWORK_SCAN_PROFILES = {"adaptive", "fast", "thorough", "stealth"}
+
+_PRIVILEGED_NMAP_FLAGS = frozenset({"-O", "--osscan-guess"})
+_NMAP_PRIVILEGE_ERRORS = (
+    "requires root privileges",
+    "requires administrator privileges",
+    "operation not permitted",
+)
+
+
+def nmap_has_raw_socket_access() -> bool:
+    """Return True when nmap can use raw sockets / OS fingerprinting on this host."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except Exception:
+            return False
+    try:
+        return os.geteuid() == 0
+    except AttributeError:
+        return False
+
+
+def without_privileged_nmap_args(args: tuple[str, ...]) -> tuple[str, ...]:
+    """Drop root-only nmap flags and downgrade SYN scans to connect scans."""
+    result: list[str] = []
+    for arg in args:
+        if arg in _PRIVILEGED_NMAP_FLAGS:
+            continue
+        if arg == "-sS":
+            if "-sT" not in args and "-sT" not in result:
+                result.append("-sT")
+            continue
+        result.append(arg)
+    return tuple(result)
+
+
+def deescalate_nmap_argv(cmd: list[str]) -> list[str]:
+    """Return a copy of an nmap argv list safe for unprivileged execution."""
+    if not cmd:
+        return cmd
+    nmap_cmd, *rest = cmd
+    args: list[str] = []
+    index = 0
+    while index < len(rest):
+        arg = rest[index]
+        if arg in _PRIVILEGED_NMAP_FLAGS:
+            index += 1
+            continue
+        if arg == "-sS":
+            if "-sT" not in rest and "-sT" not in args:
+                args.append("-sT")
+            index += 1
+            continue
+        args.append(arg)
+        index += 1
+    return [nmap_cmd, *args]
+
+
+def nmap_failure_needs_deescalation(stderr: str) -> bool:
+    lowered = (stderr or "").lower()
+    return any(message in lowered for message in _NMAP_PRIVILEGE_ERRORS)
 
 
 @dataclass(frozen=True)
@@ -151,9 +216,20 @@ def build_nmap_plan(
     return plan
 
 
-def build_nmap_command(nmap_cmd: str, target: str, plan: NmapPlan) -> list[str]:
+def build_nmap_command(
+    nmap_cmd: str,
+    target: str,
+    plan: NmapPlan,
+    *,
+    privileged: bool | None = None,
+) -> list[str]:
     """Render a safe argv list for subprocess-based nmap execution."""
-    cmd = [nmap_cmd, *plan.args, f"-T{plan.timing}", "-oX", "-"]
+    args = plan.args
+    if privileged is None:
+        privileged = nmap_has_raw_socket_access()
+    if not privileged:
+        args = without_privileged_nmap_args(args)
+    cmd = [nmap_cmd, *args, f"-T{plan.timing}", "-oX", "-"]
     if plan.ports:
         cmd.extend(["-p", plan.ports])
     cmd.append(target)

@@ -37,6 +37,29 @@ def test_network_scan_profile_planning():
     assert command[-1] == "192.168.56.10"
 
 
+def test_build_nmap_command_deescalates_without_root(monkeypatch):
+    from vulnbot.agent.network_scan import (
+        build_nmap_command,
+        build_nmap_plan,
+        deescalate_nmap_argv,
+        without_privileged_nmap_args,
+    )
+
+    plan = build_nmap_plan(profile="thorough")
+    assert "-O" in plan.args
+
+    monkeypatch.setattr("vulnbot.agent.network_scan.nmap_has_raw_socket_access", lambda: False)
+    command = build_nmap_command("/usr/bin/nmap", "192.168.56.10", plan)
+    assert "-O" not in command
+    assert "-sS" not in command
+
+    stealth = build_nmap_plan(profile="stealth")
+    assert without_privileged_nmap_args(stealth.args) == ("-q", "-sT", "-f")
+    assert "-O" not in deescalate_nmap_argv(
+        ["/usr/bin/nmap", "-sS", "-O", "-sV", "-oX", "-", "192.168.56.10"]
+    )
+
+
 def test_network_scan_adaptive_uses_prior_ports():
     from vulnbot.agent.network_scan import build_nmap_plan
 

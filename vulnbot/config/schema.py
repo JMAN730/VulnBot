@@ -223,6 +223,26 @@ class SessionConfig(BaseModel):
     show_thinking: bool = Field(
         default=False, description="Show LLM thinking/reasoning output (default: off)"
     )
+    repl_parallel_enabled: bool = Field(
+        default=True,
+        description="Use bounded child-agent fan-out by default for REPL auto-mode",
+    )
+    repl_parallel_agents: int = Field(
+        default=3,
+        description="Default child-agent count for REPL auto-mode fan-out",
+    )
+    repl_parallel_depth: int = Field(
+        default=1,
+        description="Default child-agent discovery depth for REPL auto-mode fan-out",
+    )
+    repl_parallel_worker_rounds: int = Field(
+        default=3,
+        description="Max rounds per REPL parallel worker",
+    )
+    repl_parallel_surface_limit: int = Field(
+        default=20,
+        description="Maximum discovered surfaces considered by REPL parallel auto-mode",
+    )
     # Dead-loop detection
     stale_rounds_threshold: int = Field(
         default=5,

@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from vulnbot.agent.builtin_tools import infer_port_from_url
+from vulnbot.agent.constraint_policy import host_matches_allowed_scope
 from vulnbot.config.schema import MCPServerConfig, VulnBotConfig
 from vulnbot.mcp.registry import HealthStatus, MCPRegistry
 
@@ -79,7 +80,11 @@ class MCPLifecycleManager:
         if port is None:
             port = None
 
-        if constraints.allowed_hosts and host and host not in constraints.allowed_hosts:
+        if (
+            constraints.allowed_hosts
+            and host
+            and not host_matches_allowed_scope(host, constraints.allowed_hosts)
+        ):
             allowed_hosts = ", ".join(constraints.allowed_hosts)
             return self._tool_result(
                 ok=False,

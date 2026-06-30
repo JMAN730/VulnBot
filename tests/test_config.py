@@ -117,6 +117,16 @@ class TestVulnBotConfig:
         assert config.llm.model == "gpt-4o"
         assert isinstance(config.mcp.servers, dict)
 
+    def test_session_repl_parallel_defaults(self):
+        from vulnbot.config.schema import SessionConfig
+
+        config = SessionConfig()
+        assert config.repl_parallel_enabled is True
+        assert config.repl_parallel_agents == 3
+        assert config.repl_parallel_depth == 1
+        assert config.repl_parallel_worker_rounds == 3
+        assert config.repl_parallel_surface_limit == 20
+
     def test_mcp_builtin_servers(self):
         from vulnbot.config.schema import BUILTIN_MCP_SERVERS, VulnBotConfig
 
@@ -242,6 +252,24 @@ class TestSettingsLoad:
         config = load_config()
         assert config.llm.api_keys == ["k1", "k2", "k3"]
 
+    def test_env_var_repl_parallel_overrides(self, monkeypatch):
+        """VULNBOT_SESSION_REPL_PARALLEL_* overrides session fan-out defaults."""
+        from vulnbot.config.settings import load_config
+
+        monkeypatch.setenv("VULNBOT_SESSION_REPL_PARALLEL_ENABLED", "false")
+        monkeypatch.setenv("VULNBOT_SESSION_REPL_PARALLEL_AGENTS", "2")
+        monkeypatch.setenv("VULNBOT_SESSION_REPL_PARALLEL_DEPTH", "2")
+        monkeypatch.setenv("VULNBOT_SESSION_REPL_PARALLEL_WORKER_ROUNDS", "4")
+        monkeypatch.setenv("VULNBOT_SESSION_REPL_PARALLEL_SURFACE_LIMIT", "9")
+
+        config = load_config()
+
+        assert config.session.repl_parallel_enabled is False
+        assert config.session.repl_parallel_agents == 2
+        assert config.session.repl_parallel_depth == 2
+        assert config.session.repl_parallel_worker_rounds == 4
+        assert config.session.repl_parallel_surface_limit == 9
+
     def test_set_config_value_api_keys_from_string(self, monkeypatch, tmp_path):
         """set_config_value('llm.api_keys', 'a,b') stores a parsed list."""
         import vulnbot.config.settings as settings_mod
@@ -251,6 +279,22 @@ class TestSettingsLoad:
         settings_mod.set_config_value("llm.api_keys", "a, b ,c")
         config = settings_mod.load_config()
         assert config.llm.api_keys == ["a", "b", "c"]
+
+    def test_set_config_value_repl_parallel_fields(self, monkeypatch, tmp_path):
+        """set_config_value coerces REPL parallel session fields."""
+        import vulnbot.config.settings as settings_mod
+
+        monkeypatch.setattr(settings_mod, "CONFIG_FILE", tmp_path / "config.yaml")
+        monkeypatch.setattr(settings_mod, "CONFIG_DIR", tmp_path)
+
+        settings_mod.set_config_value("session.repl_parallel_enabled", "false")
+        settings_mod.set_config_value("session.repl_parallel_agents", "2")
+        settings_mod.set_config_value("session.repl_parallel_worker_rounds", "4")
+
+        config = settings_mod.load_config()
+        assert config.session.repl_parallel_enabled is False
+        assert config.session.repl_parallel_agents == 2
+        assert config.session.repl_parallel_worker_rounds == 4
 
     def test_strip_defaults_drops_empty_api_keys(self):
         from vulnbot.config.settings import _strip_defaults

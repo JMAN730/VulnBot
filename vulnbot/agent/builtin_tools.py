@@ -15,14 +15,18 @@ import xml.etree.ElementTree as ET
 from typing import Any
 from urllib.parse import urlparse
 
-from vulnbot.agent.constraint_policy import validate_tool_action
+from vulnbot.agent.constraint_policy import host_matches_allowed_scope, validate_tool_action
 from vulnbot.agent.network_scan import (
     attach_network_scan_to_session,
     build_nmap_command,
     build_nmap_plan,
+    deescalate_nmap_argv,
+    nmap_failure_needs_deescalation,
+    nmap_has_raw_socket_access,
     parse_nmap_xml_structured,
     summarize_network_scan,
     target_is_private_literal,
+    without_privileged_nmap_args,
 )
 from vulnbot.intel.tools import (
     INTEL_TOOL_NAMES,
@@ -210,7 +214,9 @@ def enforce_host_path_constraints(
     if constraints is None or constraints.is_empty():
         return None
 
-    if constraints.allowed_hosts and host and host not in constraints.allowed_hosts:
+    if constraints.allowed_hosts and host and not host_matches_allowed_scope(
+        host, constraints.allowed_hosts
+    ):
         allowed = ", ".join(constraints.allowed_hosts)
         return f"[constraint_violation] Host {host} is outside allowed scope [{allowed}] for target {target or host}."
 
@@ -564,24 +570,48 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
             timing=timing,
             prior_recon=getattr(getattr(agent, "session_state", None), "recon_data", {}),
         )
-        cmd = build_nmap_command(nmap_cmd, target, plan)
+        privileged = nmap_has_raw_socket_access()
+        cmd = build_nmap_command(nmap_cmd, target, plan, privileged=privileged)
+        deescalated_note = (
+            ""
+            if privileged or plan.args == without_privileged_nmap_args(plan.args)
+            else "[i] Running without root: skipped OS fingerprinting (-O) and downgraded SYN scan to connect scan (-sT).\n"
+        )
     else:
         plan = None
+        privileged = nmap_has_raw_socket_access()
+        deescalated_note = ""
         cmd = [nmap_cmd, "-v" if scan_type == "full" else "-q", f"-T{max(0, min(5, timing))}"]
         if scan_type == "top_ports":
             cmd.extend(["--top-ports", "100", "-oX", "-"])
         elif scan_type == "syn":
-            cmd.extend(["-sS", "-oX", "-"])
+            cmd.extend(["-sS" if privileged else "-sT", "-oX", "-"])
+            if not privileged:
+                deescalated_note = "[i] Running without root: using connect scan (-sT) instead of SYN scan (-sS).\n"
         elif scan_type == "tcp":
             cmd.extend(["-sT", "-oX", "-"])
         elif scan_type == "service":
             cmd.extend(["-sV", "-oX", "-"])
         elif scan_type == "os":
-            cmd.extend(["-O", "-oX", "-"])
+            if privileged:
+                cmd.extend(["-O", "-oX", "-"])
+            else:
+                cmd.extend(["-sV", "-oX", "-"])
+                deescalated_note = (
+                    "[i] Running without root: OS fingerprinting (-O) unavailable; "
+                    "using service detection (-sV) instead.\n"
+                )
         elif scan_type == "vuln":
             cmd.extend(["--script", "vuln", "-oX", "-"])
         elif scan_type == "full":
-            cmd.extend(["-sS", "-O", "-sV", "--script", "default,safe", "-oX", "-"])
+            if privileged:
+                cmd.extend(["-sS", "-O", "-sV", "--script", "default,safe", "-oX", "-"])
+            else:
+                cmd.extend(["-sT", "-sV", "--script", "default,safe", "-oX", "-"])
+                deescalated_note = (
+                    "[i] Running without root: skipped OS fingerprinting (-O) and "
+                    "downgraded SYN scan to connect scan (-sT).\n"
+                )
         else:
             cmd.extend(["-sV", "-oX", "-"])
 
@@ -603,6 +633,19 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
             startupinfo.wShowWindow = subprocess.SW_HIDE
             kwargs["startupinfo"] = startupinfo
         result = subprocess.run(cmd, **kwargs)
+        if (
+            result.returncode != 0
+            and not result.stdout
+            and nmap_failure_needs_deescalation(result.stderr or "")
+        ):
+            fallback_cmd = deescalate_nmap_argv(cmd)
+            if fallback_cmd != cmd:
+                fallback = subprocess.run(fallback_cmd, **kwargs)
+                if fallback.returncode == 0 or fallback.stdout:
+                    result = fallback
+                    deescalated_note = (
+                        "[i] Retried without privileged nmap flags after permission error.\n"
+                    )
     except subprocess.TimeoutExpired:
         return "[!] nmap scan timed out (120s); reduce scan scope or use faster timing"
     except PermissionError:
@@ -624,8 +667,8 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
         )
     if profile:
         network_summary = summarize_network_scan(structured)
-        return f"{human_summary}\n\n{network_summary}"
-    return human_summary
+        return f"{deescalated_note}{human_summary}\n\n{network_summary}"
+    return f"{deescalated_note}{human_summary}"
 
 
 def is_reserved_ip(ip: str) -> tuple[bool, str]:

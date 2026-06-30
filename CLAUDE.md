@@ -51,6 +51,8 @@ only — **no pentest logic lives here**.
 
 The flow goes: **CLI/TUI/Web → orchestrator → AgentCore → loop_controller → tools**.
 
+The classic `vulnbot` REPL now uses bounded parallel child-agent fan-out by default for auto-mode prompts. The runtime `parallel` commands only affect the current REPL session; persist defaults through `vulnbot config set session.repl_parallel_* ...` or the config TUI.
+
 - **`vulnbot/orchestrator.py`** — the shared task lifecycle (`restore → run →
   save → summarize`) used identically by CLI, REPL, and Web. `repl_runner.py`
   is the interactive-shell driver. Put cross-surface task behavior here, not in
@@ -96,7 +98,9 @@ The flow goes: **CLI/TUI/Web → orchestrator → AgentCore → loop_controller 
 - **`vulnbot/config/`** — `schema.py` (Pydantic models, provider presets) +
   `settings.py` (YAML load/save + env overrides). Precedence: **env vars > config
   file (`~/.vulnbot/config.yaml`) > built-in defaults**. Don't hand-parse config
-  elsewhere.
+  elsewhere. REPL parallel settings live under `session.repl_parallel_enabled`,
+  `session.repl_parallel_agents`, `session.repl_parallel_depth`,
+  `session.repl_parallel_worker_rounds`, and `session.repl_parallel_surface_limit`.
 
 - **`vulnbot/report/`** — Markdown/HTML report rendering + Python/bash PoC
   generation (`generator.py`, `poc_builder.py`, `pdf_exporter.py` behind the
@@ -115,3 +119,5 @@ The flow goes: **CLI/TUI/Web → orchestrator → AgentCore → loop_controller 
 - Version source of truth is `pyproject.toml`; `vulnbot/__init__.py` is a fallback.
 - The default `vulnbot` (no args) opens the classic REPL; the TUI opens *only*
   via explicit `vulnbot tui`. Don't change that default.
+- In the REPL, `parallel` controls are runtime-only unless changed through config
+  persistence.

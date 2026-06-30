@@ -167,7 +167,9 @@ def _overlay_env(config: VulnBotConfig) -> VulnBotConfig:
 
     Supported env vars (prefix VULNBOT_):
         LLM:        API_KEY, BASE_URL, MODEL, PROVIDER, MAX_TOKENS, MAX_CONTEXT_TOKENS, TEMPERATURE
-        Session:    OUTPUT_DIR, AUTO_SAVE, REPORT_FORMAT, MAX_ROUNDS, SHOW_THINKING
+        Session:    OUTPUT_DIR, AUTO_SAVE, REPORT_FORMAT, MAX_ROUNDS, SHOW_THINKING,
+                    REPL_PARALLEL_ENABLED, REPL_PARALLEL_AGENTS, REPL_PARALLEL_DEPTH,
+                    REPL_PARALLEL_WORKER_ROUNDS, REPL_PARALLEL_SURFACE_LIMIT
         Safety:     PYTHON_EXECUTE_ENABLED, PYTHON_EXECUTE_RESTRICTED, PYTHON_EXECUTE_MODE,
                     PYTHON_EXECUTE_MAX_LINES, PYTHON_EXECUTE_SHOW_WARNING,
                     PYTHON_EXECUTE_MAX_OUTPUT_CHARS, PYTHON_EXECUTE_AUDIT_ENABLED
@@ -207,6 +209,20 @@ def _overlay_env(config: VulnBotConfig) -> VulnBotConfig:
             config.session.max_rounds = int(v)
     if v := os.environ.get("VULNBOT_SESSION_SHOW_THINKING"):
         config.session.show_thinking = v.lower() in ("1", "true", "yes", "on")
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_ENABLED"):
+        config.session.repl_parallel_enabled = v.lower() in ("1", "true", "yes", "on")
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_AGENTS"):
+        with suppress(ValueError):
+            config.session.repl_parallel_agents = int(v)
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_DEPTH"):
+        with suppress(ValueError):
+            config.session.repl_parallel_depth = int(v)
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_WORKER_ROUNDS"):
+        with suppress(ValueError):
+            config.session.repl_parallel_worker_rounds = int(v)
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_SURFACE_LIMIT"):
+        with suppress(ValueError):
+            config.session.repl_parallel_surface_limit = int(v)
 
     # Safety
     if v := os.environ.get("VULNBOT_SAFETY_PYTHON_EXECUTE_ENABLED"):
