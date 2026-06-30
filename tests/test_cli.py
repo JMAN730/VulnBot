@@ -905,3 +905,20 @@ class TestCLISubCommands:
         # Should not be a usage error (exit code 2)
         assert result.exit_code != 2
         # The command will fail for other reasons (no config, etc.), but that's okay
+
+
+class TestFreshReconI18n:
+    """Force-fresh-recon UI strings exist in both locales."""
+
+    def test_keys_present(self):
+        import json
+        from pathlib import Path
+
+        import vulnbot
+
+        base = Path(vulnbot.__file__).parent / "i18n"
+        en = json.loads((base / "en.json").read_text(encoding="utf-8"))
+        zh = json.loads((base / "zh.json").read_text(encoding="utf-8"))
+        for key in ("cli.fresh_recon_armed", "cli.recon_reused", "help.rescan"):
+            assert key in en, f"missing {key} in en.json"
+            assert key in zh, f"missing {key} in zh.json"

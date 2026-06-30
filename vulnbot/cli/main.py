@@ -236,6 +236,7 @@ def _run_repl() -> None:
     auto_mode_active = False
     _last_ctrlc_time = 0.0
     last_auto_input: str = ""
+    pending_fresh_recon = False
 
     while True:
         try:
@@ -318,6 +319,18 @@ def _run_repl() -> None:
                     report_format=config.session.report_format,
                 )
                 console.print(_("cli.report_generated", path=report_path))
+                continue
+
+            elif cmd_lower.startswith("rescan"):
+                rescan_target = user_input[len("rescan") :].strip() or current_target
+                if not rescan_target:
+                    console.print(_("cli.no_target_for_report"))
+                    continue
+                current_target, current_phase, _restored = _prepare_repl_target(
+                    agent, rescan_target, current_target, current_phase
+                )
+                pending_fresh_recon = True
+                console.print(_("cli.fresh_recon_armed", target=current_target))
                 continue
 
             elif cmd_lower.startswith("persistent"):
@@ -504,12 +517,26 @@ def _run_repl() -> None:
                                 max_rounds=config.session.max_rounds,
                                 on_step=on_step,
                                 stream_sink=sink,
+                                fresh_recon=pending_fresh_recon,
                             )
 
                         async def after_result(results):
                             if results:
                                 total_findings = len(agent.session_state.findings)
                                 total_steps = len(agent.session_state.executed_steps)
+                                if getattr(agent.runtime, "reuse_recon", False):
+                                    recon = agent.session_state.recon_data
+                                    asset_count = sum(
+                                        len(v) for v in recon.values() if isinstance(v, list)
+                                    )
+                                    console.print(
+                                        _(
+                                            "cli.recon_reused",
+                                            target=current_target or agent.session_state.target,
+                                            assets=asset_count,
+                                            findings=total_findings,
+                                        )
+                                    )
                                 console.print()
                                 console.print(
                                     Panel(
@@ -539,6 +566,7 @@ def _run_repl() -> None:
                         await _run_repl_agent_call(agent, call=call, after_result=after_result)
 
                     asyncio.run(_run_auto())
+                    pending_fresh_recon = False
                     auto_mode_active = True
                     console.print(_("cli.auto_mode_hint"))
 
@@ -604,6 +632,7 @@ def _print_help() -> None:
   {_("help.status")}
   {_("help.tools")}
   {_("help.report")}
+  {_("help.rescan")}
   {_("help.think")}
   {_("help.think_on_off")}
   {_("help.persistent")}
@@ -807,6 +836,9 @@ def run(
     snapshot: Optional[str] = typer.Option(
         None, "--snapshot", help="Resume from a specific target snapshot id"
     ),
+    fresh_recon: bool = typer.Option(
+        False, "--fresh-recon", help="Re-run recon from scratch (keeps prior findings)"
+    ),
 ) -> None:
     """Run a full authorized pentest workflow."""
     config = load_config()
@@ -842,6 +874,7 @@ def run(
                     else None
                 ),
                 stream_sink=sink,
+                fresh_recon=fresh_recon,
             )
 
         result = await _run_cli_orchestrated_task(
@@ -895,6 +928,9 @@ def persistent(
     resume: bool = typer.Option(True, "--resume/--no-resume", help="Resume previous target state"),
     snapshot: Optional[str] = typer.Option(
         None, "--snapshot", help="Resume from a specific target snapshot id"
+    ),
+    fresh_recon: bool = typer.Option(
+        False, "--fresh-recon", help="Re-run recon from scratch (keeps prior findings)"
     ),
 ) -> None:
     """Run a persistent authorized pentest across multiple cycles."""
@@ -972,6 +1008,7 @@ def persistent(
                 on_cycle_step=_on_cycle_step,
                 on_cycle_complete=_on_cycle_complete,
                 stream_sink=sink,
+                fresh_recon=fresh_recon,
             )
 
         return await _run_cli_orchestrated_task(
