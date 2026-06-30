@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ipaddress
+
 from vulnbot.agent.context import PentestPhase, TaskConstraints
 
 PHASE_TO_ACTION: dict[PentestPhase, str] = {
@@ -123,6 +125,47 @@ def infer_tool_action(tool_name: str, args: dict[str, object]) -> str:
         return "scan"
 
     return "scan"
+
+
+def host_matches_allowed_scope(host: str, allowed_hosts: list[str]) -> bool:
+    """Return True when host is explicitly allowed or falls inside an allowed CIDR."""
+    normalized = (host or "").strip().lower()
+    if not normalized:
+        return False
+
+    allowed_lower = {item.strip().lower() for item in allowed_hosts if item}
+    if normalized in allowed_lower:
+        return True
+
+    try:
+        if "/" in normalized:
+            host_network = ipaddress.ip_network(normalized, strict=False)
+            for allowed in allowed_hosts:
+                try:
+                    if "/" not in allowed:
+                        continue
+                    allowed_network = ipaddress.ip_network(allowed, strict=False)
+                    if host_network.subnet_of(allowed_network) or host_network == allowed_network:
+                        return True
+                except ValueError:
+                    continue
+            return False
+
+        host_addr = ipaddress.ip_address(normalized)
+        for allowed in allowed_hosts:
+            try:
+                if "/" in allowed:
+                    if host_addr in ipaddress.ip_network(allowed, strict=False):
+                        return True
+                elif ipaddress.ip_address(allowed) == host_addr:
+                    return True
+            except ValueError:
+                if allowed.strip().lower() == normalized:
+                    return True
+    except ValueError:
+        return False
+
+    return False
 
 
 def validate_tool_action(

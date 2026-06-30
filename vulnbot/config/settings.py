@@ -94,18 +94,25 @@ def set_config_value(key: str, value: str) -> None:
     field_name = parts[-1]
 
     # Type coercion based on field annotation
+    coerced: Any = value
     model_fields = getattr(type(obj), "model_fields", {})
     if field_name in model_fields:
         field_info = model_fields[field_name]
         annotation = field_info.annotation
         if annotation is int:
-            value = int(value)
+            coerced = int(value)
         elif annotation is float:
-            value = float(value)
+            coerced = float(value)
         elif annotation is bool:
-            value = value.lower() in ("true", "1", "yes")
+            coerced = value.lower() in ("true", "1", "yes")
+        elif getattr(annotation, "__origin__", None) is list:
+            # Accept a list as-is, or split a comma/newline-separated string.
+            if isinstance(value, str):
+                coerced = [p.strip() for p in value.replace("\n", ",").split(",") if p.strip()]
+            else:
+                coerced = list(value)
 
-    setattr(obj, field_name, value)
+    setattr(obj, field_name, coerced)
     save_config(config)
 
 
@@ -160,7 +167,9 @@ def _overlay_env(config: VulnBotConfig) -> VulnBotConfig:
 
     Supported env vars (prefix VULNBOT_):
         LLM:        API_KEY, BASE_URL, MODEL, PROVIDER, MAX_TOKENS, MAX_CONTEXT_TOKENS, TEMPERATURE
-        Session:    OUTPUT_DIR, AUTO_SAVE, REPORT_FORMAT, MAX_ROUNDS, SHOW_THINKING
+        Session:    OUTPUT_DIR, AUTO_SAVE, REPORT_FORMAT, MAX_ROUNDS, SHOW_THINKING,
+                    REPL_PARALLEL_ENABLED, REPL_PARALLEL_AGENTS, REPL_PARALLEL_DEPTH,
+                    REPL_PARALLEL_WORKER_ROUNDS, REPL_PARALLEL_SURFACE_LIMIT
         Safety:     PYTHON_EXECUTE_ENABLED, PYTHON_EXECUTE_RESTRICTED, PYTHON_EXECUTE_MODE,
                     PYTHON_EXECUTE_MAX_LINES, PYTHON_EXECUTE_SHOW_WARNING,
                     PYTHON_EXECUTE_MAX_OUTPUT_CHARS, PYTHON_EXECUTE_AUDIT_ENABLED
@@ -168,6 +177,10 @@ def _overlay_env(config: VulnBotConfig) -> VulnBotConfig:
     # LLM
     if v := os.environ.get("VULNBOT_LLM_API_KEY"):
         config.llm.api_key = v
+    if v := os.environ.get("VULNBOT_LLM_API_KEYS"):
+        keys = [k.strip() for k in v.split(",") if k.strip()]
+        if keys:
+            config.llm.api_keys = keys
     if v := os.environ.get("VULNBOT_LLM_BASE_URL"):
         config.llm.base_url = v
     if v := os.environ.get("VULNBOT_LLM_MODEL"):
@@ -196,6 +209,20 @@ def _overlay_env(config: VulnBotConfig) -> VulnBotConfig:
             config.session.max_rounds = int(v)
     if v := os.environ.get("VULNBOT_SESSION_SHOW_THINKING"):
         config.session.show_thinking = v.lower() in ("1", "true", "yes", "on")
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_ENABLED"):
+        config.session.repl_parallel_enabled = v.lower() in ("1", "true", "yes", "on")
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_AGENTS"):
+        with suppress(ValueError):
+            config.session.repl_parallel_agents = int(v)
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_DEPTH"):
+        with suppress(ValueError):
+            config.session.repl_parallel_depth = int(v)
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_WORKER_ROUNDS"):
+        with suppress(ValueError):
+            config.session.repl_parallel_worker_rounds = int(v)
+    if v := os.environ.get("VULNBOT_SESSION_REPL_PARALLEL_SURFACE_LIMIT"):
+        with suppress(ValueError):
+            config.session.repl_parallel_surface_limit = int(v)
 
     # Safety
     if v := os.environ.get("VULNBOT_SAFETY_PYTHON_EXECUTE_ENABLED"):
@@ -223,6 +250,8 @@ def _strip_defaults(raw: dict) -> None:
     # Keep it simple; just strip known default values.
     if raw.get("llm", {}).get("api_key") == "":
         raw["llm"].pop("api_key", None)
+    if raw.get("llm", {}).get("api_keys") == []:
+        raw["llm"].pop("api_keys", None)
     # Do not strip base_url/model if provider is set; they may be provider-specific.
     # Only strip if still at OpenAI defaults
     if raw.get("llm", {}).get("provider") == "openai":

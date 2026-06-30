@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Literal, Optional
 
 from rich import box
@@ -17,7 +18,9 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 
+from vulnbot.config.schema import MCPServerConfig, MCPTransportConfig
 from vulnbot.config.settings import (
+    BUILTIN_MCP_SERVERS,
     apply_provider_preset,
     fetch_provider_models,
     list_providers,
@@ -1350,6 +1353,427 @@ def _prompt_llm_config(screen: Console, config):
     )
     Prompt.ask(_("tui.press_enter"), default="")
     return config
+
+
+def _split_csv_items(raw: str) -> list[str]:
+    """Split a comma/newline separated string into cleaned items."""
+    return [item.strip() for item in raw.replace("\n", ",").split(",") if item.strip()]
+
+
+def _prompt_text_value(screen: Console, label: str, current: str) -> str:
+    """Prompt for a string value, keeping the current value on blank input."""
+    raw = Prompt.ask(label, default=current, console=screen).strip()
+    if raw == "!clear":
+        return ""
+    return current if raw == "" else raw
+
+
+def _prompt_choice_value(screen: Console, label: str, choices: list[str], current: str) -> str:
+    """Prompt for a choice value with a stable default."""
+    default = current if current in choices else choices[0]
+    return Prompt.ask(label, choices=choices, default=default, console=screen).strip()
+
+
+def _prompt_bool_value(screen: Console, label: str, current: bool) -> bool:
+    """Prompt for a boolean value."""
+    return Confirm.ask(label, default=current, console=screen)
+
+
+def _prompt_int_value(screen: Console, label: str, current: int) -> int:
+    """Prompt for an integer value, keeping the current value on blank input."""
+    while True:
+        raw = Prompt.ask(label, default=str(current), console=screen).strip()
+        if not raw:
+            return current
+        try:
+            return int(raw)
+        except ValueError:
+            screen.print(f"[{C_ERROR}]Enter a whole number.[/]")
+
+
+def _prompt_float_value(screen: Console, label: str, current: float) -> float:
+    """Prompt for a float value, keeping the current value on blank input."""
+    while True:
+        raw = Prompt.ask(label, default=str(current), console=screen).strip()
+        if not raw:
+            return current
+        try:
+            return float(raw)
+        except ValueError:
+            screen.print(f"[{C_ERROR}]Enter a number.[/]")
+
+
+def _prompt_list_value(screen: Console, label: str, current: list[str]) -> list[str]:
+    """Prompt for a comma-separated list value."""
+    raw = Prompt.ask(label, default=", ".join(current), console=screen).strip()
+    if raw == "!clear":
+        return []
+    if not raw:
+        return current
+    return _split_csv_items(raw)
+
+
+def _prompt_env_value(screen: Console, label: str, current: dict[str, str] | None) -> dict[str, str]:
+    """Prompt for key=value pairs separated by commas."""
+    current_text = ", ".join(f"{k}={v}" for k, v in sorted((current or {}).items()))
+    raw = Prompt.ask(label, default=current_text, console=screen).strip()
+    if raw == "!clear":
+        return {}
+    if not raw:
+        return current or {}
+
+    result: dict[str, str] = {}
+    for item in _split_csv_items(raw):
+        if "=" not in item:
+            raise ValueError("Environment entries must look like KEY=value")
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise ValueError("Environment keys cannot be blank")
+        result[key] = value.strip()
+    return result
+
+
+def _render_config_summary(screen: Console, config) -> None:
+    """Render a compact summary of the editable config sections."""
+    llm = Table(title="LLM", box=box.ROUNDED, border_style=C_BORDER_SUBTLE)
+    llm.add_column("Field", style=f"bold {C_PRIMARY}")
+    llm.add_column("Value", style=C_TEXT)
+    llm.add_row("Provider", config.llm.provider)
+    llm.add_row("Model", config.llm.model)
+    llm.add_row("Base URL", config.llm.base_url)
+    llm.add_row("API keys", ", ".join(config.llm.api_keys) if config.llm.api_keys else "(single key)")
+    llm.add_row("Reasoning", config.llm.reasoning_effort)
+
+    session = Table(title="Session", box=box.ROUNDED, border_style=C_BORDER_SUBTLE)
+    session.add_column("Field", style=f"bold {C_SECONDARY}")
+    session.add_column("Value", style=C_TEXT)
+    session.add_row("Output dir", str(config.session.output_dir))
+    session.add_row("Max rounds", str(config.session.max_rounds))
+    session.add_row(
+        "REPL parallel",
+        "yes" if config.session.repl_parallel_enabled else "no",
+    )
+    session.add_row("REPL parallel agents", str(config.session.repl_parallel_agents))
+    session.add_row("REPL parallel depth", str(config.session.repl_parallel_depth))
+    session.add_row("Language", config.session.language)
+    session.add_row("Show thinking", "yes" if config.session.show_thinking else "no")
+    session.add_row("Persistent cycles", str(config.session.persistent_max_cycles))
+
+    safety = Table(title="Safety", box=box.ROUNDED, border_style=C_BORDER_SUBTLE)
+    safety.add_column("Field", style=f"bold {C_ACCENT}")
+    safety.add_column("Value", style=C_TEXT)
+    safety.add_row("Python execute", "yes" if config.safety.enable_python_execute else "no")
+    safety.add_row("Restricted", "yes" if config.safety.python_execute_restricted else "no")
+    safety.add_row("Mode", config.safety.python_execute_mode)
+    safety.add_row("Parallel tools", "yes" if config.safety.tool_parallel else "no")
+
+    mcp = Table(title="MCP Servers", box=box.ROUNDED, border_style=C_BORDER_SUBTLE)
+    mcp.add_column("Name", style=f"bold {C_PRIMARY}")
+    mcp.add_column("Status", style=C_TEXT)
+    mcp.add_column("Transport", style=C_MUTED)
+    for name, server in config.mcp.servers.items():
+        transport = server.transport
+        if transport.type == "stdio":
+            details = " ".join(
+                part for part in [transport.command or "", " ".join(transport.args or [])] if part
+            ).strip()
+            summary = f"stdio {details}".strip()
+        else:
+            summary = f"sse {transport.url or ''}".strip()
+        status = "enabled" if server.enabled else "disabled"
+        if name in BUILTIN_MCP_SERVERS:
+            status += ", builtin"
+        mcp.add_row(name, status, summary)
+
+    screen.print(
+        Panel(
+            Group(llm, session, safety, mcp),
+            title="Config Draft",
+            border_style=C_BORDER,
+            box=box.ROUNDED,
+        )
+    )
+
+
+def _edit_llm_config(screen: Console, config):
+    """Edit LLM configuration fields in-place."""
+    screen.print(Panel("Edit LLM settings", border_style=C_BORDER_SUBTLE, box=box.ROUNDED))
+    providers = [item["provider"] for item in list_providers()]
+    provider = _prompt_choice_value(screen, "Provider", providers, config.llm.provider)
+    if provider != config.llm.provider:
+        config = apply_provider_preset(config, provider)
+
+    config.llm.base_url = _prompt_text_value(screen, "Base URL", config.llm.base_url)
+    config.llm.model = _prompt_text_value(screen, "Model", config.llm.model)
+    config.llm.api_keys = _prompt_list_value(
+        screen,
+        "API keys (comma-separated, !clear to empty)",
+        config.llm.api_keys,
+    )
+    config.llm.api_key = _prompt_text_value(
+        screen,
+        "Single API key fallback (!clear to empty)",
+        config.llm.api_key,
+    )
+    config.llm.max_tokens = _prompt_int_value(screen, "Max tokens", config.llm.max_tokens)
+    config.llm.max_context_tokens = _prompt_int_value(
+        screen, "Max context tokens", config.llm.max_context_tokens
+    )
+    config.llm.temperature = _prompt_float_value(screen, "Temperature", config.llm.temperature)
+    config.llm.reasoning_effort = _prompt_text_value(
+        screen, "Reasoning effort", config.llm.reasoning_effort
+    )
+    return config
+
+
+def _edit_session_config(screen: Console, config):
+    """Edit session configuration fields in-place."""
+    screen.print(Panel("Edit session settings", border_style=C_BORDER_SUBTLE, box=box.ROUNDED))
+    config.session.output_dir = Path(
+        _prompt_text_value(screen, "Output directory", str(config.session.output_dir))
+    )
+    config.session.auto_save = _prompt_bool_value(screen, "Auto save", config.session.auto_save)
+    config.session.report_format = _prompt_text_value(
+        screen, "Report format", config.session.report_format
+    )
+    config.session.poc_language = _prompt_text_value(
+        screen, "PoC language", config.session.poc_language
+    )
+    config.session.max_rounds = _prompt_int_value(screen, "Max rounds", config.session.max_rounds)
+    config.session.show_thinking = _prompt_bool_value(
+        screen, "Show thinking", config.session.show_thinking
+    )
+    config.session.repl_parallel_enabled = _prompt_bool_value(
+        screen,
+        "REPL parallel auto-mode",
+        config.session.repl_parallel_enabled,
+    )
+    config.session.repl_parallel_agents = _prompt_int_value(
+        screen,
+        "REPL parallel child agents",
+        config.session.repl_parallel_agents,
+    )
+    config.session.repl_parallel_depth = _prompt_int_value(
+        screen,
+        "REPL parallel depth",
+        config.session.repl_parallel_depth,
+    )
+    config.session.repl_parallel_worker_rounds = _prompt_int_value(
+        screen,
+        "REPL parallel worker rounds",
+        config.session.repl_parallel_worker_rounds,
+    )
+    config.session.repl_parallel_surface_limit = _prompt_int_value(
+        screen,
+        "REPL parallel surface limit",
+        config.session.repl_parallel_surface_limit,
+    )
+    config.session.stale_rounds_threshold = _prompt_int_value(
+        screen, "Stale rounds threshold", config.session.stale_rounds_threshold
+    )
+    config.session.persistent_rounds_per_cycle = _prompt_int_value(
+        screen,
+        "Persistent rounds per cycle",
+        config.session.persistent_rounds_per_cycle,
+    )
+    config.session.persistent_max_cycles = _prompt_int_value(
+        screen, "Persistent max cycles", config.session.persistent_max_cycles
+    )
+    config.session.persistent_auto_report = _prompt_bool_value(
+        screen, "Persistent auto report", config.session.persistent_auto_report
+    )
+    config.session.language = _prompt_choice_value(
+        screen, "Language", ["auto", "en", "zh"], config.session.language
+    )
+    return config
+
+
+def _edit_safety_config(screen: Console, config):
+    """Edit safety configuration fields in-place."""
+    screen.print(Panel("Edit safety settings", border_style=C_BORDER_SUBTLE, box=box.ROUNDED))
+    config.safety.enable_python_execute = _prompt_bool_value(
+        screen, "Enable python execute", config.safety.enable_python_execute
+    )
+    config.safety.python_execute_restricted = _prompt_bool_value(
+        screen, "Python execute restricted", config.safety.python_execute_restricted
+    )
+    config.safety.python_execute_mode = _prompt_choice_value(
+        screen,
+        "Python execute mode",
+        ["safe", "lab", "trusted-local"],
+        config.safety.python_execute_mode,
+    )
+    config.safety.python_execute_max_lines = _prompt_int_value(
+        screen, "Python execute max lines", config.safety.python_execute_max_lines
+    )
+    config.safety.python_execute_show_warning = _prompt_bool_value(
+        screen, "Show python execute warning", config.safety.python_execute_show_warning
+    )
+    config.safety.python_execute_max_output_chars = _prompt_int_value(
+        screen,
+        "Python execute max output chars",
+        config.safety.python_execute_max_output_chars,
+    )
+    config.safety.python_execute_audit_enabled = _prompt_bool_value(
+        screen, "Python execute audit enabled", config.safety.python_execute_audit_enabled
+    )
+    config.safety.tool_parallel = _prompt_bool_value(
+        screen, "Parallel tool calls", config.safety.tool_parallel
+    )
+    config.safety.tool_max_concurrent = _prompt_int_value(
+        screen, "Max concurrent tools", config.safety.tool_max_concurrent
+    )
+    return config
+
+
+def _prompt_mcp_transport(screen: Console, transport: MCPTransportConfig) -> MCPTransportConfig:
+    """Edit transport settings for an MCP server."""
+    transport.type = _prompt_choice_value(screen, "Transport type", ["stdio", "sse"], transport.type)
+    transport.command = _prompt_text_value(screen, "Transport command", transport.command or "")
+    transport.args = _prompt_list_value(
+        screen,
+        "Transport args (comma-separated, !clear to empty)",
+        transport.args or [],
+    )
+    transport.url = _prompt_text_value(screen, "Transport URL", transport.url or "")
+    transport.env = _prompt_env_value(screen, "Transport env (KEY=value, !clear to empty)", transport.env)
+    transport.startup_timeout = _prompt_int_value(
+        screen, "Transport startup timeout", transport.startup_timeout
+    )
+    transport.tool_timeout = _prompt_int_value(
+        screen, "Transport tool timeout", transport.tool_timeout
+    )
+    return transport
+
+
+def _prompt_mcp_server(screen: Console, config, *, server: MCPServerConfig | None = None) -> tuple[str, MCPServerConfig]:
+    """Create or edit a single MCP server definition."""
+    is_new = server is None
+    current_name = server.name if server else ""
+    while True:
+        if is_new:
+            name = _prompt_text_value(screen, "Server name", current_name)
+            if not name:
+                screen.print(f"[{C_ERROR}]Server name cannot be blank.[/]")
+                continue
+            if name in config.mcp.servers:
+                screen.print(f"[{C_ERROR}]Server '{name}' already exists.[/]")
+                continue
+        else:
+            name = current_name
+        break
+
+    current = server or MCPServerConfig(
+        name=name,
+        enabled=True,
+        priority=1,
+        transport=MCPTransportConfig(type="stdio"),
+    )
+    current.name = name
+    current.enabled = _prompt_bool_value(screen, f"Enabled [{name}]", current.enabled)
+    current.priority = _prompt_int_value(screen, f"Priority [{name}]", current.priority)
+    current.description = _prompt_text_value(screen, f"Description [{name}]", current.description)
+    current.transport = _prompt_mcp_transport(screen, current.transport)
+    return name, current
+
+
+def _edit_mcp_config(screen: Console, config):
+    """Edit MCP server configuration."""
+    while True:
+        screen.print(
+            Panel("Edit MCP servers", border_style=C_BORDER_SUBTLE, box=box.ROUNDED)
+        )
+        table = Table(box=box.SIMPLE, border_style=C_BORDER_SUBTLE)
+        table.add_column("Server", style=f"bold {C_PRIMARY}")
+        table.add_column("Enabled", style=C_TEXT)
+        table.add_column("Priority", style=C_TEXT)
+        table.add_column("Transport", style=C_MUTED)
+        for name, server in config.mcp.servers.items():
+            if server.transport.type == "stdio":
+                transport = "stdio"
+            else:
+                transport = "sse"
+            marker = "builtin" if name in BUILTIN_MCP_SERVERS else "custom"
+            table.add_row(name, "yes" if server.enabled else "no", str(server.priority), f"{transport} / {marker}")
+        screen.print(table)
+
+        action = Prompt.ask(
+            "Action",
+            choices=["add", "edit", "delete", "back"],
+            default="back",
+            console=screen,
+        ).strip()
+
+        if action == "back":
+            return config
+        if action == "add":
+            name, server = _prompt_mcp_server(screen, config)
+            config.mcp.servers[name] = server
+            continue
+        if action == "edit":
+            if not config.mcp.servers:
+                screen.print(f"[{C_WARNING}]No MCP servers to edit.[/]")
+                continue
+            name = Prompt.ask(
+                "Server to edit",
+                choices=list(config.mcp.servers.keys()),
+                default=next(iter(config.mcp.servers)),
+                console=screen,
+            ).strip()
+            current = config.mcp.servers[name]
+            _, server = _prompt_mcp_server(screen, config, server=current)
+            config.mcp.servers[name] = server
+            continue
+        if action == "delete":
+            if not config.mcp.servers:
+                screen.print(f"[{C_WARNING}]No MCP servers to delete.[/]")
+                continue
+            name = Prompt.ask(
+                "Server to delete",
+                choices=list(config.mcp.servers.keys()),
+                default=next(iter(config.mcp.servers)),
+                console=screen,
+            ).strip()
+            if name in BUILTIN_MCP_SERVERS:
+                screen.print(f"[{C_WARNING}]Built-in servers are seeded defaults and cannot be deleted here.[/]")
+                continue
+            if Confirm.ask(f"Delete MCP server '{name}'?", default=False, console=screen):
+                config.mcp.servers.pop(name, None)
+            continue
+
+
+def run_config_tui() -> None:
+    """Run the interactive config editor."""
+    screen = Console()
+    config = load_config()
+
+    while True:
+        screen.print()
+        screen.print(Panel("VulnBot Config", border_style=C_BORDER, box=box.ROUNDED))
+        _render_config_summary(screen, config)
+        action = Prompt.ask(
+            "Section",
+            choices=["llm", "session", "safety", "mcp", "save", "quit"],
+            default="save",
+            console=screen,
+        ).strip()
+
+        if action == "llm":
+            config = _edit_llm_config(screen, config)
+        elif action == "session":
+            config = _edit_session_config(screen, config)
+        elif action == "safety":
+            config = _edit_safety_config(screen, config)
+        elif action == "mcp":
+            config = _edit_mcp_config(screen, config)
+        elif action == "save":
+            save_config(config)
+            screen.print(Panel("Config saved.", border_style=C_SUCCESS, box=box.ROUNDED))
+            return
+        elif action == "quit":
+            screen.print(Panel("Discarded changes.", border_style=C_WARNING, box=box.ROUNDED))
+            return
 
 
 def _prompt_scope(state: TuiState) -> None:

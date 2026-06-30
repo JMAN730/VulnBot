@@ -1,6 +1,6 @@
-# VulnClaw CTF/SRC Routing Guide
+# Vulnbot CTF/SRC Routing Guide
 
-This reference connects `secknowledge-skill` to VulnClaw's CTF and SRC workflows.
+This reference connects `secknowledge-skill` to Vulnbot's CTF and SRC workflows.
 
 ## When To Use This Skill
 
@@ -11,7 +11,7 @@ Use `secknowledge-skill` when the user is doing authorized practical testing wit
 - Mixed CTF/SRC questions where the user needs both exploit ideas and a checklist for evidence, risk, and reportability.
 - AI/LLM security tasks that need GAARM, OWASP LLM/ASI, prompt injection, MCP, Agent, RAG, or sandbox escape mapping.
 
-Keep VulnClaw's existing specialist skills in the loop:
+Keep Vulnbot's existing specialist skills in the loop:
 
 - Use `ctf-web` for short CTF Web tricks such as PHP weak comparison, preg_match bypass, eval/RCE, SSTI, and file upload chains.
 - Use `ctf-crypto` for pure crypto problems.
@@ -39,7 +39,7 @@ Keep VulnClaw's existing specialist skills in the loop:
 ## CTF Workflow
 
 1. Classify the challenge into Web, AI/MCP/Agent, sandbox, crypto, or misc.
-2. If it is a narrow CTF trick, route to the matching VulnClaw CTF skill and use this skill only for broader vulnerability families or evidence discipline.
+2. If it is a narrow CTF trick, route to the matching Vulnbot CTF skill and use this skill only for broader vulnerability families or evidence discipline.
 3. If it resembles a real vulnerability, load the matching `web-*` or `ai-*` reference and keep each exploit hypothesis separate from confirmed behavior.
 4. Keep payload output small and cite the specific reference file when possible.
 

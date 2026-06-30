@@ -15,7 +15,19 @@ import xml.etree.ElementTree as ET
 from typing import Any
 from urllib.parse import urlparse
 
-from vulnbot.agent.constraint_policy import validate_tool_action
+from vulnbot.agent.constraint_policy import host_matches_allowed_scope, validate_tool_action
+from vulnbot.agent.network_scan import (
+    attach_network_scan_to_session,
+    build_nmap_command,
+    build_nmap_plan,
+    deescalate_nmap_argv,
+    nmap_failure_needs_deescalation,
+    nmap_has_raw_socket_access,
+    parse_nmap_xml_structured,
+    summarize_network_scan,
+    target_is_private_literal,
+    without_privileged_nmap_args,
+)
 from vulnbot.intel.tools import (
     INTEL_TOOL_NAMES,
     dispatch_intel_tool,
@@ -202,7 +214,9 @@ def enforce_host_path_constraints(
     if constraints is None or constraints.is_empty():
         return None
 
-    if constraints.allowed_hosts and host and host not in constraints.allowed_hosts:
+    if constraints.allowed_hosts and host and not host_matches_allowed_scope(
+        host, constraints.allowed_hosts
+    ):
         allowed = ", ".join(constraints.allowed_hosts)
         return f"[constraint_violation] Host {host} is outside allowed scope [{allowed}] for target {target or host}."
 
@@ -223,6 +237,7 @@ def infer_ports_from_nmap_args(args: dict[str, Any]) -> list[int]:
     """Infer concrete target ports from nmap arguments for constraint checks."""
     custom_ports = str(args.get("ports", "") or "").strip()
     scan_type = str(args.get("scan_type", "top_ports") or "top_ports")
+    profile = str(args.get("profile", "") or "").strip()
 
     if custom_ports:
         ports: list[int] = []
@@ -247,6 +262,15 @@ def infer_ports_from_nmap_args(args: dict[str, Any]) -> list[int]:
             if 0 < port <= 65535:
                 ports.append(port)
         return sorted(set(ports))
+
+    if profile:
+        plan = build_nmap_plan(
+            profile=profile,
+            scan_type=str(args.get("scan_type", "") or ""),
+            ports="",
+            timing=int(args.get("timing", 3) or 3),
+        )
+        return infer_ports_from_nmap_args({**args, "ports": plan.ports, "profile": ""})
 
     if scan_type == "top_ports":
         return []
@@ -401,6 +425,10 @@ def build_openai_tools(mcp_manager: Any) -> list[dict[str, Any]]:
                             "type": "integer",
                             "description": "Timing template 0-5, default 4; higher is faster but noisier",
                         },
+                        "profile": {
+                            "type": "string",
+                            "description": "Optional network scan profile: adaptive/fast/thorough/stealth. Profiles tune ports, timing, service detection, and safe scripts.",
+                        },
                     },
                     "required": ["target"],
                 },
@@ -507,7 +535,7 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
         if ips:
             ip = ips[0][4][0]
             is_reserved, reason = is_reserved_ip(ip)
-            if is_reserved:
+            if is_reserved and not target_is_private_literal(target):
                 return (
                     f"[SKIP] Target {target} resolves to a reserved/private address ({reason}, IP: {ip})\n"
                     f"Skipping nmap scan. Prefer web fingerprinting, directory enumeration, or other "
@@ -519,6 +547,7 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
     scan_type = args.get("scan_type", "top_ports")
     custom_ports = args.get("ports", "")
     timing = int(args.get("timing", 4))
+    profile = str(args.get("profile", "") or "").strip().lower()
 
     nmap_cmd = shutil.which("nmap")
     if not nmap_cmd:
@@ -533,27 +562,62 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
     if not nmap_cmd:
         return "[!] nmap is not installed or not in PATH. Install nmap and ensure it is on the system PATH."
 
-    cmd = [nmap_cmd, "-v" if scan_type == "full" else "-q", f"-T{max(0, min(5, timing))}"]
-    if scan_type == "top_ports":
-        cmd.extend(["--top-ports", "100", "-oX", "-"])
-    elif scan_type == "syn":
-        cmd.extend(["-sS", "-oX", "-"])
-    elif scan_type == "tcp":
-        cmd.extend(["-sT", "-oX", "-"])
-    elif scan_type == "service":
-        cmd.extend(["-sV", "-oX", "-"])
-    elif scan_type == "os":
-        cmd.extend(["-O", "-oX", "-"])
-    elif scan_type == "vuln":
-        cmd.extend(["--script", "vuln", "-oX", "-"])
-    elif scan_type == "full":
-        cmd.extend(["-sS", "-O", "-sV", "--script", "default,safe", "-oX", "-"])
+    if profile:
+        plan = build_nmap_plan(
+            profile=profile,
+            scan_type=str(scan_type or ""),
+            ports=str(custom_ports or ""),
+            timing=timing,
+            prior_recon=getattr(getattr(agent, "session_state", None), "recon_data", {}),
+        )
+        privileged = nmap_has_raw_socket_access()
+        cmd = build_nmap_command(nmap_cmd, target, plan, privileged=privileged)
+        deescalated_note = (
+            ""
+            if privileged or plan.args == without_privileged_nmap_args(plan.args)
+            else "[i] Running without root: skipped OS fingerprinting (-O) and downgraded SYN scan to connect scan (-sT).\n"
+        )
     else:
-        cmd.extend(["-sV", "-oX", "-"])
+        plan = None
+        privileged = nmap_has_raw_socket_access()
+        deescalated_note = ""
+        cmd = [nmap_cmd, "-v" if scan_type == "full" else "-q", f"-T{max(0, min(5, timing))}"]
+        if scan_type == "top_ports":
+            cmd.extend(["--top-ports", "100", "-oX", "-"])
+        elif scan_type == "syn":
+            cmd.extend(["-sS" if privileged else "-sT", "-oX", "-"])
+            if not privileged:
+                deescalated_note = "[i] Running without root: using connect scan (-sT) instead of SYN scan (-sS).\n"
+        elif scan_type == "tcp":
+            cmd.extend(["-sT", "-oX", "-"])
+        elif scan_type == "service":
+            cmd.extend(["-sV", "-oX", "-"])
+        elif scan_type == "os":
+            if privileged:
+                cmd.extend(["-O", "-oX", "-"])
+            else:
+                cmd.extend(["-sV", "-oX", "-"])
+                deescalated_note = (
+                    "[i] Running without root: OS fingerprinting (-O) unavailable; "
+                    "using service detection (-sV) instead.\n"
+                )
+        elif scan_type == "vuln":
+            cmd.extend(["--script", "vuln", "-oX", "-"])
+        elif scan_type == "full":
+            if privileged:
+                cmd.extend(["-sS", "-O", "-sV", "--script", "default,safe", "-oX", "-"])
+            else:
+                cmd.extend(["-sT", "-sV", "--script", "default,safe", "-oX", "-"])
+                deescalated_note = (
+                    "[i] Running without root: skipped OS fingerprinting (-O) and "
+                    "downgraded SYN scan to connect scan (-sT).\n"
+                )
+        else:
+            cmd.extend(["-sV", "-oX", "-"])
 
-    if custom_ports:
-        cmd.extend(["-p", custom_ports])
-    cmd.append(target)
+        if custom_ports:
+            cmd.extend(["-p", custom_ports])
+        cmd.append(target)
 
     try:
         kwargs: dict[str, Any] = {
@@ -569,6 +633,19 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
             startupinfo.wShowWindow = subprocess.SW_HIDE
             kwargs["startupinfo"] = startupinfo
         result = subprocess.run(cmd, **kwargs)
+        if (
+            result.returncode != 0
+            and not result.stdout
+            and nmap_failure_needs_deescalation(result.stderr or "")
+        ):
+            fallback_cmd = deescalate_nmap_argv(cmd)
+            if fallback_cmd != cmd:
+                fallback = subprocess.run(fallback_cmd, **kwargs)
+                if fallback.returncode == 0 or fallback.stdout:
+                    result = fallback
+                    deescalated_note = (
+                        "[i] Retried without privileged nmap flags after permission error.\n"
+                    )
     except subprocess.TimeoutExpired:
         return "[!] nmap scan timed out (120s); reduce scan scope or use faster timing"
     except PermissionError:
@@ -578,7 +655,20 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
 
     if result.returncode != 0 and not result.stdout:
         return f"[!] nmap scan failed ({result.returncode}): {result.stderr[:500]}"
-    return parse_nmap_xml(result.stdout or result.stderr, target)
+    output = result.stdout or result.stderr
+    human_summary = parse_nmap_xml(output, target)
+    structured = parse_nmap_xml_structured(output, target)
+    if getattr(agent, "session_state", None) is not None:
+        attach_network_scan_to_session(
+            agent.session_state,
+            structured,
+            profile=profile or str(scan_type or "top_ports"),
+            safe_probes=profile != "vuln",
+        )
+    if profile:
+        network_summary = summarize_network_scan(structured)
+        return f"{deescalated_note}{human_summary}\n\n{network_summary}"
+    return f"{deescalated_note}{human_summary}"
 
 
 def is_reserved_ip(ip: str) -> tuple[bool, str]:
@@ -818,20 +908,25 @@ async def execute_python(agent: Any, args: dict[str, Any]) -> str:
         base_env = {"PYTHONIOENCODING": "utf-8"}
         env = {**os.environ, **base_env} if mode == "trusted-local" else base_env
 
-        loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(
-            None,
-            lambda: subprocess.run(
-                [sys.executable, tmp_path],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout_seconds,
-                cwd=tempfile.gettempdir(),
-                env=env,
-            ),
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable,
+            tmp_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=tempfile.gettempdir(),
+            env=env,
         )
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            await proc.wait()
+            raise
 
         try:
             os.unlink(tmp_path)
@@ -839,12 +934,14 @@ async def execute_python(agent: Any, args: dict[str, Any]) -> str:
             pass
 
         output_parts: list[str] = []
-        if result.stdout:
-            output_parts.append(result.stdout)
-        if result.stderr:
+        stdout_text = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
+        stderr_text = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+        if stdout_text:
+            output_parts.append(stdout_text)
+        if stderr_text:
             stderr_lines = [
                 line
-                for line in result.stderr.splitlines()
+                for line in stderr_text.splitlines()
                 if "ImportError" not in line and "No module named" not in line
             ]
             if stderr_lines:
@@ -862,7 +959,7 @@ async def execute_python(agent: Any, args: dict[str, Any]) -> str:
             output = output[:clip] + "\n...[truncated]...\n" + output[-clip:]
         _write_python_audit(agent, purpose=purpose, code=code, mode=mode, outcome="success")
         return f"{warning_prefix}[+] Python execution result ({mode}):\n{output}"
-    except subprocess.TimeoutExpired:
+    except (subprocess.TimeoutExpired, asyncio.TimeoutError):
         try:
             os.unlink(tmp_path)
         except OSError:

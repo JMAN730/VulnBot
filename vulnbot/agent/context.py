@@ -139,10 +139,11 @@ class VulnerabilityFinding(BaseModel):
                 location = path_match.group(0)
                 break
 
-        # Use vuln_type as dedup key; location only if non-empty.
+        # Use vuln_type as dedup key; fall back to title when type is missing.
+        dedup_base = self.vuln_type.strip() or re.sub(r"\W+", "_", self.title.lower()).strip("_")
         if location:
-            return f"{self.vuln_type}_{location}"[:50]
-        return self.vuln_type[:50]
+            return f"{dedup_base}_{location}"[:50]
+        return dedup_base[:50]
 
     def mark_verified(self, note: str = "", evidence_level: str = "L4") -> None:
         """Mark the finding as verified."""

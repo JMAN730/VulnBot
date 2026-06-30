@@ -25,7 +25,7 @@ Natural language input → automated "Recon → Vulnerability Discovery → Expl
 </div>
 
 > **ℹ️ About this build — VulnBot.** This package (`vulnbot`) is a combined
-> product that merges [VulnClaw](https://github.com/Unclecheng-li/VulnClaw)
+> product that merges [Vulnbot](https://github.com/Unclecheng-li/Vulnbot)
 > (base: agent core, MCP toolchain, skills, CLI/TUI/web) with intelligence
 > modules ported from [HackBot](https://github.com/yashab-cyber/hackbot)
 > (CVE, OSINT, topology, compliance/MITRE, findings scoring, remediation, PDF).
@@ -48,7 +48,7 @@ VulnBot executes:
   Round 4:  Reporting → Structured report + Python PoC script
 ```
 
-<img width="1148" height="642" alt="image" src="https://github.com/user-attachments/assets/576e1cf6-25da-4969-864b-40e77d020dbf" />
+<img width="780" alt="VulnBot terminal demo" src="docs/assets/terminal-demo.png" />
 
 Suitable for authorized pentests, CTF competitions, security training, and red team operations.
 
@@ -65,6 +65,7 @@ Suitable for authorized pentests, CTF competitions, security training, and red t
 - **Python Code Execution** — Built-in `python_execute` tool for payload crafting and response parsing; currently still a high-risk experimental capability, not a strong isolation sandbox
 - **Persistent Pentesting** — Cyclic runs (100 rounds/cycle × 10 cycles = 1000 rounds), auto-reports every cycle, runs until you stop it
 - **Thinking Process Control** — `think on/off` toggles LLM reasoning visibility, off by default for clean output
+- **REPL Parallel Auto-Mode** — Classic REPL auto prompts now use bounded child-agent fan-out by default; `parallel status/on/off/agents/reset` controls the current session without affecting one-off chat
 - **Sandbox Mode Prompting** — Unlocks AI security testing capabilities, designed for CTF and authorized pentest scenarios
 - **Auto Report & PoC** — Generates structured Markdown reports and runnable Python PoC scripts
 - **Web UI Mode** — `vulnbot web` launches a local web interface for browser-based pentest operations, default `127.0.0.1:7788`
@@ -104,9 +105,9 @@ Optional extras: `pip install vulnbot[osint]` (dnspython for richer DNS),
 # Install from PyPI (recommended)
 pip install vulnbot
 
-# Install from source (VulnBot is built on the VulnClaw tree)
-git clone https://github.com/Unclecheng-li/VulnClaw.git
-cd VulnClaw
+# Install from source (VulnBot is built on the Vulnbot tree)
+git clone https://github.com/Unclecheng-li/Vulnbot.git
+cd Vulnbot
 pip install -e .
 ```
 
@@ -164,7 +165,8 @@ MCP Services:
 
 ## CLI Command Reference
 
-Run `vulnbot --help` to see all available commands:
+Run `vulnbot --help` to see all available commands. For the full flag manual, use
+`vulnbot manual`, `vulnbot manual <command>`, or `vulnbot --man`.
 
 ```bash
 $ vulnbot --help
@@ -182,12 +184,15 @@ $ vulnbot --help
    persistent    🔄 Persistent pentesting (100 rounds/cycle)
    recon         🔍 Reconnaissance only (no exploitation)
    scan          🔎 Vulnerability scanning
+   network-scan  🛰️  Nmap network scan + weak-link follow-up
    exploit       💥 Exploitation phase
    report        📝 Generate report from session JSON
    repl          💬 Start the classic REPL
    config        ⚙️  Manage config (set/get/list/provider)
    init          🔧 Initialize configuration
    doctor        🏥  Check runtime environment
+   manual        📖  Full CLI manual with flag explanations
+   man           📖  Alias for manual
    tui           🖥️  Open the terminal UI workbench
    web           🌐 Launch local Web UI
 ```
@@ -203,6 +208,7 @@ $ vulnbot --help
 | `vulnbot persistent <target>` | Persistent pentesting | `vulnbot persistent 192.168.1.1` |
 | `vulnbot recon <target>` | Reconnaissance only | `vulnbot recon target.com` |
 | `vulnbot scan <target>` | Vulnerability scanning | `vulnbot scan target.com --ports 80,443` |
+| `vulnbot network-scan [target]` | Nmap scan, weak-link ranking, safe follow-up probes. Defaults to connected Wi-Fi subnet. Use `--parallel-agents N` for bounded worker fan-out across discovered surfaces. | `vulnbot network-scan --profile fast --parallel-agents 3` |
 | `vulnbot exploit <target>` | Exploitation phase | `vulnbot exploit target.com --cve CVE-2024-1234` |
 | `vulnbot report <session>` | Generate report from session | `vulnbot report session_xxx.json` |
 | `vulnbot config set <key> <value>` | Set a config value | `vulnbot config set llm.api_key sk-xxx` |
@@ -211,6 +217,7 @@ $ vulnbot --help
 | `vulnbot config provider <name>` | Switch LLM provider | `vulnbot config provider deepseek` |
 | `vulnbot init` | Initialize config files | `vulnbot init` |
 | `vulnbot doctor` | Check runtime environment | `vulnbot doctor` |
+| `vulnbot manual [command]` | Full CLI manual with flag explanations | `vulnbot manual network-scan` / `vulnbot --man` |
 | `vulnbot web` | Launch local Web UI | `vulnbot web` / `vulnbot web --port 8080` |
 
 ### TUI Workbench
@@ -304,6 +311,8 @@ $ vulnbot repl
 
 Enter the classic 🦞 interactive shell and chat in natural language:
 
+Auto-mode prompts in the REPL now use bounded parallel child-agent fan-out by default. Use `parallel status`, `parallel off`, `parallel agents 2`, or `parallel reset` to control the current session without changing single-turn chat.
+
 ```
 🦞 vulnbot> pentest 192.168.1.100 — this is my authorized lab
 
@@ -330,6 +339,7 @@ Enter the classic 🦞 interactive shell and chat in natural language:
 | `target <host>`     | Set pentest target                                      |
 | `status`            | View current state (target, phase, tools, thinking)    |
 | `tools`             | List available MCP tools                               |
+| `parallel`          | Show or tune REPL auto-mode fan-out                    |
 | `think`             | Toggle thinking process display                         |
 | `think on` / `off`  | Explicitly control thinking visibility                  |
 | `persistent`        | Start persistent pentesting (100 rounds/cycle)         |
@@ -368,6 +378,11 @@ vulnbot recon 192.168.1.100
 
 # Vulnerability scan (specify ports)
 vulnbot scan 192.168.1.100 --ports 80,443,8080
+
+# Network scan with weak-link prioritization (safe probes by default)
+vulnbot network-scan --profile adaptive
+vulnbot network-scan 192.168.1.100 --profile thorough --ports 1-1000
+vulnbot network-scan --profile fast --parallel-agents 3 --parallel-depth 2 --worker-rounds 3
 
 # Exploitation (specify CVE)
 vulnbot exploit 192.168.1.100 --cve CVE-2024-1234 --cmd id
@@ -598,6 +613,8 @@ vulnbot config set llm.api_key sk-xx         # set API key
 vulnbot config set session.max_rounds 30     # set max autonomous rounds (default 15)
 vulnbot config set session.stale_rounds_threshold 8  # set dead-loop threshold (default 5)
 vulnbot config set session.show_thinking false  # hide thinking process (also in REPL: think off)
+vulnbot config set session.repl_parallel_enabled true  # enable REPL fan-out by default
+vulnbot config set session.repl_parallel_agents 3      # default child-agent count
 ```
 
 ### Configurable Options
@@ -615,6 +632,11 @@ vulnbot config set session.show_thinking false  # hide thinking process (also in
 | `session.report_format`                  | markdown       | Report format (markdown / html)                |
 | `session.poc_language`                  | python         | PoC generation language (python / bash)          |
 | `session.show_thinking`                 | false          | Show LLM reasoning (think tag content, default off)|
+| `session.repl_parallel_enabled`         | true           | Use bounded parallel fan-out by default in REPL auto-mode |
+| `session.repl_parallel_agents`          | 3              | Child-agent count used for REPL auto-mode fan-out  |
+| `session.repl_parallel_depth`           | 1              | Parallel discovery depth for REPL auto-mode        |
+| `session.repl_parallel_worker_rounds`   | 3              | Rounds per child agent in REPL auto-mode           |
+| `session.repl_parallel_surface_limit`   | 20             | Max discovered surfaces considered for REPL fan-out |
 | `session.persistent_rounds_per_cycle`   | 100            | Rounds per cycle in persistent mode              |
 | `session.persistent_max_cycles`        | 10             | Max cycles in persistent mode (0=unlimited)     |
 | `session.persistent_auto_report`        | true           | Auto-generate report after each cycle            |
@@ -624,12 +646,17 @@ vulnbot config set session.show_thinking false  # hide thinking process (also in
 
 | Variable                                        | Description              |
 | ----------------------------------------------- | ---------------------- |
-| `VULNCLAW_LLM_PROVIDER`                       | LLM provider name      |
-| `VULNCLAW_LLM_API_KEY`                        | API key                |
-| `VULNCLAW_LLM_BASE_URL`                       | API base URL           |
-| `VULNCLAW_LLM_MODEL`                          | Model name             |
-| `VULNCLAW_SESSION__MAX_ROUNDS`                | Max autonomous rounds  |
-| `VULNCLAW_SESSION__STALE_ROUNDS_THRESHOLD`    | Dead-loop threshold    |
+| `VULNBOT_LLM_PROVIDER`                       | LLM provider name      |
+| `VULNBOT_LLM_API_KEY`                        | API key                |
+| `VULNBOT_LLM_BASE_URL`                       | API base URL           |
+| `VULNBOT_LLM_MODEL`                          | Model name             |
+| `VULNBOT_SESSION_MAX_ROUNDS`                 | Max autonomous rounds  |
+| `VULNBOT_SESSION_SHOW_THINKING`              | Show or hide thinking output |
+| `VULNBOT_SESSION_REPL_PARALLEL_ENABLED`      | Enable REPL parallel auto-mode |
+| `VULNBOT_SESSION_REPL_PARALLEL_AGENTS`       | Child-agent count for REPL auto-mode |
+| `VULNBOT_SESSION_REPL_PARALLEL_DEPTH`        | Discovery depth for REPL auto-mode |
+| `VULNBOT_SESSION_REPL_PARALLEL_WORKER_ROUNDS`| Rounds per REPL child worker |
+| `VULNBOT_SESSION_REPL_PARALLEL_SURFACE_LIMIT`| Surface cap for REPL fan-out |
 
 Priority: **Environment Variables > Config File > Built-in Defaults**
 

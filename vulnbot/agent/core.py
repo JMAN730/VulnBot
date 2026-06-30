@@ -61,6 +61,9 @@ class AgentCore:
         self.mcp_manager = mcp_manager
         self.context = ContextManager()
         self._client = None
+        # Failover key pool: prefer llm.api_keys, else the single llm.api_key.
+        self._key_pool = config.llm.key_pool()
+        self._key_index = 0
         self.runtime = RuntimeState()
         self._reset_runtime_state()
         # Optional KB retriever; lazily initialized on first use.
@@ -189,6 +192,24 @@ class AgentCore:
         # Re-bind finding parser to the new runtime object
         self._finding_parser = FindingParser(self.context, self.runtime)
 
+    def _current_api_key(self) -> str:
+        """Return the API key currently selected from the failover pool."""
+        if self._key_pool:
+            return self._key_pool[self._key_index]
+        return self.config.llm.api_key
+
+    def rotate_api_key(self) -> bool:
+        """Advance to the next key in the failover pool.
+
+        Invalidates the cached client so the next call rebuilds with the new
+        key. Returns False (no-op) when there is nothing to rotate to.
+        """
+        if len(self._key_pool) <= 1:
+            return False
+        self._key_index = (self._key_index + 1) % len(self._key_pool)
+        self._client = None
+        return True
+
     def _get_client(self):
         """Lazy-initialize OpenAI client."""
         if self._client is None:
@@ -196,7 +217,7 @@ class AgentCore:
                 from openai import OpenAI
 
                 self._client = OpenAI(
-                    api_key=self.config.llm.api_key,
+                    api_key=self._current_api_key(),
                     base_url=self.config.llm.base_url,
                 )
             except ImportError:

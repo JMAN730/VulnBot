@@ -1,6 +1,6 @@
-# 🦞 War Stories — VulnClaw case study note
+# 🦞 War Stories — Vulnbot case study note
 
-case study note VulnClaw case study note/CTF case study note。
+case study note Vulnbot case study note/CTF case study note。
 
 case study note：case study note flag，case study note、case study note。
 

@@ -8,7 +8,11 @@ import asyncio
 import os
 import sys
 import time
+from dataclasses import dataclass
 from typing import Optional
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 
 
 def _configure_windows_console() -> None:
@@ -49,7 +53,10 @@ from vulnbot import __version__
 from vulnbot.agent.constraint_policy import validate_action_constraints
 from vulnbot.agent.input_analysis import extract_task_constraints
 from vulnbot.agent.think_filter import format_think_tags, strip_think_tags
+from vulnbot.cli.manual import available_topics, render_manual
+from vulnbot.cli.tui import run_config_tui
 from vulnbot.config.settings import (
+    CONFIG_DIR,
     apply_provider_preset,
     list_providers,
     load_config,
@@ -141,11 +148,11 @@ err_console = Console(stderr=True)
 
 
 ASCII_LOGO = (
-    " _    __      __      ________\n"
-    "| |  / /_  __/ /___  / ____/ /___ __      __\n"
-    "| | / / / / / / __ \\/ /   / / __ `/ | /| / /\n"
-    "| |/ / /_/ / / / / / /___/ / /_/ /| |/ |/ /\n"
-    "|___/\\__,_/_/_/ /_/\\____/_/\\__,_/ |__/|__/\n"
+    " _    __      __      ____        __ \n"
+    "| |  / /_  __/ /___  / __ )____  / /_\n"
+    "| | / / / / / / __ \\/ __  / __ \\/ __/\n"
+    "| |/ / /_/ / / / / / /_/ / /_/ / /_  \n"
+    "|___/\\__,_/_/_/ /_/_____/\\____/\\__/  \n"
 )
 
 BANNER_SUBTITLE = f"VulnBot v{__version__} - AI-powered penetration testing CLI"
@@ -157,6 +164,13 @@ def _print_banner() -> None:
     console.print(logo)
     console.print(subtitle)
     console.print()
+
+
+def _build_repl_prompt_session() -> PromptSession[str]:
+    """Build the REPL input session with persistent command history."""
+    history_file = CONFIG_DIR / "repl_history"
+    history_file.parent.mkdir(parents=True, exist_ok=True)
+    return PromptSession(history=FileHistory(str(history_file)), enable_history_search=True)
 
 
 def _print_agent_output(output: str, config) -> None:
@@ -203,6 +217,255 @@ async def _run_repl_agent_call(agent, *, call, after_result) -> None:
     await run_repl_call(call=call, after_result=after_result)
 
 
+@dataclass
+class ReplParallelSettings:
+    """Runtime REPL parallel controls copied from persisted session config."""
+
+    enabled: bool
+    agents: int
+    depth: int
+    worker_rounds: int
+    surface_limit: int
+
+
+@dataclass(frozen=True)
+class ReplParallelBudget:
+    """Effective bounded fan-out settings for one REPL auto-mode run."""
+
+    use_parallel: bool
+    discovery_rounds: int
+    worker_rounds: int
+    max_agents: int
+    max_depth: int
+    surface_limit: int
+    max_rounds: int
+    reason: str = ""
+
+
+def _coerce_int(value, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _repl_parallel_settings_from_config(config) -> ReplParallelSettings:
+    session = config.session
+    return ReplParallelSettings(
+        enabled=bool(getattr(session, "repl_parallel_enabled", True)),
+        agents=_coerce_int(getattr(session, "repl_parallel_agents", 3), 3),
+        depth=_coerce_int(getattr(session, "repl_parallel_depth", 1), 1),
+        worker_rounds=_coerce_int(getattr(session, "repl_parallel_worker_rounds", 3), 3),
+        surface_limit=_coerce_int(getattr(session, "repl_parallel_surface_limit", 20), 20),
+    )
+
+
+def _resolve_repl_parallel_budget(
+    settings: ReplParallelSettings,
+    *,
+    max_rounds: int,
+) -> ReplParallelBudget:
+    """Resolve REPL parallel settings under the total session max-round budget."""
+    total_rounds = _coerce_int(max_rounds, 0)
+    fallback_rounds = max(0, total_rounds)
+
+    def fallback(reason: str) -> ReplParallelBudget:
+        return ReplParallelBudget(
+            use_parallel=False,
+            discovery_rounds=fallback_rounds,
+            worker_rounds=0,
+            max_agents=0,
+            max_depth=0,
+            surface_limit=max(0, settings.surface_limit),
+            max_rounds=total_rounds,
+            reason=reason,
+        )
+
+    if not settings.enabled:
+        return fallback("disabled")
+
+    if settings.agents < 1:
+        return fallback("child-agent count must be at least 1")
+    if settings.depth < 1:
+        return fallback("parallel depth must be at least 1")
+    if settings.worker_rounds < 1:
+        return fallback("worker rounds must be at least 1")
+    if settings.surface_limit < 1:
+        return fallback("surface limit must be at least 1")
+    if total_rounds < 2:
+        return fallback("no remaining worker budget")
+
+    discovery_rounds = max(1, int(total_rounds * 0.4))
+    remaining_rounds = total_rounds - discovery_rounds
+    if remaining_rounds < 1:
+        return fallback("no remaining worker budget")
+
+    effective_agents = min(settings.agents, remaining_rounds)
+    worker_rounds = min(settings.worker_rounds, max(1, remaining_rounds // effective_agents))
+    if effective_agents < 1 or worker_rounds < 1:
+        return fallback("no remaining worker budget")
+
+    return ReplParallelBudget(
+        use_parallel=True,
+        discovery_rounds=discovery_rounds,
+        worker_rounds=worker_rounds,
+        max_agents=effective_agents,
+        max_depth=settings.depth,
+        surface_limit=settings.surface_limit,
+        max_rounds=total_rounds,
+    )
+
+
+def _flatten_parallel_repl_results(summary) -> list:
+    """Return a list-like result for existing REPL completion rendering."""
+    if not hasattr(summary, "root_results"):
+        return summary
+
+    flattened = []
+    root_results = getattr(summary, "root_results", [])
+    if isinstance(root_results, list):
+        flattened.extend(root_results)
+    elif root_results:
+        flattened.append(root_results)
+
+    for worker in getattr(summary, "worker_results", []) or []:
+        worker_results = worker.get("results") if isinstance(worker, dict) else worker
+        if isinstance(worker_results, list):
+            flattened.extend(worker_results)
+        elif worker_results:
+            flattened.append(worker_results)
+
+    return flattened
+
+
+async def _run_repl_auto_pentest(
+    agent,
+    config,
+    parallel_settings: ReplParallelSettings,
+    *,
+    user_input: str,
+    target: Optional[str],
+    on_step,
+    stream_sink,
+):
+    """Run REPL auto-mode, using bounded parallel child agents when enabled."""
+    budget = _resolve_repl_parallel_budget(
+        parallel_settings,
+        max_rounds=config.session.max_rounds,
+    )
+    if not budget.use_parallel:
+        return await agent.auto_pentest(
+            user_input,
+            target=target,
+            max_rounds=config.session.max_rounds,
+            on_step=on_step,
+            stream_sink=stream_sink,
+        )
+
+    from vulnbot.agent.parallel_agents import run_parallel_pentest
+
+    def agent_factory():
+        return agent.__class__(config, getattr(agent, "mcp_manager", None))
+
+    summary = await run_parallel_pentest(
+        agent,
+        agent_factory=agent_factory,
+        user_input=user_input,
+        target=target,
+        discovery_rounds=budget.discovery_rounds,
+        worker_rounds=budget.worker_rounds,
+        max_agents=budget.max_agents,
+        max_depth=budget.max_depth,
+        surface_limit=budget.surface_limit,
+        stream_sink=stream_sink,
+    )
+
+    if hasattr(summary, "surfaces"):
+        if summary.surfaces:
+            console.print(
+                "[dim][*] REPL parallel: "
+                f"explored {len(summary.surfaces)} surface(s) across "
+                f"{summary.waves_completed} wave(s).[/]"
+            )
+        else:
+            console.print(
+                "[dim][*] REPL parallel: no parallel surfaces found; "
+                "completed root discovery only.[/]"
+            )
+
+    return _flatten_parallel_repl_results(summary)
+
+
+def _print_repl_parallel_status(settings: ReplParallelSettings, config) -> None:
+    budget = _resolve_repl_parallel_budget(settings, max_rounds=config.session.max_rounds)
+    enabled = "[green]on[/]" if settings.enabled else "[yellow]off[/]"
+    if budget.use_parallel:
+        effective = (
+            f"{budget.max_agents} child agent(s), depth {budget.max_depth}, "
+            f"{budget.discovery_rounds} root round(s), "
+            f"{budget.worker_rounds} worker round(s)"
+        )
+    else:
+        effective = f"single-agent auto mode ({budget.reason})"
+
+    console.print(
+        Panel(
+            f"Enabled: {enabled}\n"
+            f"Configured agents: [bold]{settings.agents}[/]\n"
+            f"Configured depth: [bold]{settings.depth}[/]\n"
+            f"Configured worker rounds: [bold]{settings.worker_rounds}[/]\n"
+            f"Surface limit: [bold]{settings.surface_limit}[/]\n"
+            f"Max rounds: [bold]{config.session.max_rounds}[/]\n"
+            f"Effective: [bold]{effective}[/]",
+            title="REPL Parallel",
+            border_style="cyan",
+        )
+    )
+
+
+def _handle_repl_parallel_command(
+    user_input: str,
+    settings: ReplParallelSettings,
+    config,
+) -> tuple[bool, ReplParallelSettings]:
+    parts = user_input.strip().split()
+    if not parts or parts[0].lower() != "parallel":
+        return False, settings
+
+    if len(parts) == 1 or (len(parts) == 2 and parts[1].lower() == "status"):
+        _print_repl_parallel_status(settings, config)
+        return True, settings
+
+    action = parts[1].lower()
+    if action == "on":
+        settings.enabled = True
+        console.print("[*] REPL parallel auto-mode: [green]on[/]")
+        return True, settings
+    if action == "off":
+        settings.enabled = False
+        console.print("[*] REPL parallel auto-mode: [yellow]off[/]")
+        return True, settings
+    if action == "reset":
+        settings = _repl_parallel_settings_from_config(config)
+        console.print("[*] REPL parallel controls reset from config.")
+        _print_repl_parallel_status(settings, config)
+        return True, settings
+    if action == "agents":
+        if len(parts) != 3:
+            console.print("[!] Usage: parallel agents N")
+            return True, settings
+        agents = _coerce_int(parts[2], 0)
+        if agents < 1:
+            console.print("[!] parallel agents must be at least 1")
+            return True, settings
+        settings.agents = agents
+        console.print(f"[*] REPL parallel child agents: [bold]{agents}[/]")
+        return True, settings
+
+    console.print("[!] Usage: parallel [status|on|off|agents N|reset]")
+    return True, settings
+
+
 def _run_repl() -> None:
     """Run the interactive REPL loop."""
     from vulnbot.agent.core import AgentCore
@@ -225,6 +488,7 @@ def _run_repl() -> None:
 
     # Initialize agent
     agent = AgentCore(config, mcp_manager)
+    repl_session = _build_repl_prompt_session() if sys.stdin.isatty() and sys.stdout.isatty() else None
 
     console.print(_("cli.welcome"))
     console.print()
@@ -237,6 +501,7 @@ def _run_repl() -> None:
     _last_ctrlc_time = 0.0
     last_auto_input: str = ""
     pending_fresh_recon = False
+    repl_parallel_settings = _repl_parallel_settings_from_config(config)
 
     while True:
         try:
@@ -246,11 +511,14 @@ def _run_repl() -> None:
                 prompt_parts.append(f"[bold cyan]{current_target}[/]")
             prompt_parts.append(f"[dim]{current_phase}[/]")
             if auto_mode_active:
-                prompt_parts.append("[bold yellow]AUTO[/]")
+                prompt_parts.append("AUTO")
             prompt_str = " | ".join(prompt_parts) if prompt_parts else "vulnbot"
 
             # Read input
-            user_input = console.input(f"vulnbot {prompt_str}> ").strip()
+            if repl_session is not None:
+                user_input = repl_session.prompt(f"vulnbot {prompt_str}> ").strip()
+            else:
+                user_input = console.input(f"vulnbot {prompt_str}> ").strip()
 
             if not user_input:
                 if last_auto_input:
@@ -464,6 +732,14 @@ def _run_repl() -> None:
                 console.print(_("cli.thinking_hidden"))
                 continue
 
+            handled_parallel, repl_parallel_settings = _handle_repl_parallel_command(
+                user_input,
+                repl_parallel_settings,
+                config,
+            )
+            if handled_parallel:
+                continue
+
             # Handle auto mode persistence: exit auto mode on explicit commands
             if auto_mode_active and user_input.lower().strip() in (
                 "chat", "manual", "exit auto", "single turn",
@@ -511,17 +787,24 @@ def _run_repl() -> None:
                                 if result.phase:
                                     current_phase = result.phase
 
-                            return await agent.auto_pentest(
-                                user_input,
+                            return await _run_repl_auto_pentest(
+                                agent,
+                                config,
+                                repl_parallel_settings,
+                                user_input=user_input,
                                 target=current_target,
-                                max_rounds=config.session.max_rounds,
                                 on_step=on_step,
                                 stream_sink=sink,
                                 fresh_recon=pending_fresh_recon,
                             )
 
                         async def after_result(results):
+                            nonlocal current_target, current_phase
                             if results:
+                                if agent.session_state.target:
+                                    current_target = agent.session_state.target
+                                if agent.session_state.phase:
+                                    current_phase = agent.session_state.phase.value
                                 total_findings = len(agent.session_state.findings)
                                 total_steps = len(agent.session_state.executed_steps)
                                 if getattr(agent.runtime, "reuse_recon", False):
@@ -633,6 +916,7 @@ def _print_help() -> None:
   {_("help.tools")}
   {_("help.report")}
   {_("help.rescan")}
+  {_("help.parallel")}
   {_("help.think")}
   {_("help.think_on_off")}
   {_("help.persistent")}
@@ -703,6 +987,49 @@ def _generate_report_for_target(
     session = SessionState(target=target)
     path = generate_report(session, report_format=report_format)
     return str(path)
+
+
+def _infer_report_format(output_path: str, configured_format: str) -> str:
+    """Infer report format from an explicit output path when possible."""
+    from pathlib import Path
+
+    suffix = Path(output_path).suffix.lower()
+    if suffix in {".html", ".htm"}:
+        return "html"
+    if suffix in {".md", ".markdown"}:
+        return "markdown"
+    return configured_format
+
+
+def _generate_report_output_for_target(
+    target: str,
+    output_path: str,
+    *,
+    report_format: str,
+) -> str:
+    """Generate a CLI report for a target, preferring saved target state."""
+    from vulnbot.agent.context import SessionState
+    from vulnbot.report.generator import generate_report, generate_report_from_target_state
+
+    effective_format = _infer_report_format(output_path, report_format)
+    state = load_target_state(target)
+    if state:
+        return str(
+            generate_report_from_target_state(
+                state,
+                report_format=effective_format,
+                output_path=output_path,
+            )
+        )
+
+    session = SessionState(target=target)
+    return str(
+        generate_report(
+            session,
+            output_path=output_path,
+            report_format=effective_format,
+        )
+    )
 
 
 def _append_cli_constraints(
@@ -889,6 +1216,13 @@ def run(
     orchestrated = asyncio.run(_run())
     total_findings = orchestrated.summary["findings_count"]
     console.print(_("cli.pentest_finished", findings=total_findings))
+    if output:
+        report_path = _generate_report_output_for_target(
+            target,
+            output,
+            report_format=config.session.report_format,
+        )
+        console.print(f"[+] Report generated: {report_path}")
 
 
 @app.command()
@@ -1177,6 +1511,188 @@ def scan(
     asyncio.run(_run())
 
 
+@app.command("network-scan")
+def network_scan(
+    target: Optional[str] = typer.Argument(
+        None, help="Target host/IP/CIDR. Defaults to the connected Wi-Fi subnet."
+    ),
+    profile: str = typer.Option(
+        "adaptive",
+        "--profile",
+        help="Network scan profile: adaptive, fast, thorough, stealth",
+    ),
+    ports: Optional[str] = typer.Option(None, "--ports", help="Port range, e.g. 80,443,1-1000"),
+    max_rounds: int = typer.Option(
+        0, "--max-rounds", help="Agent follow-up rounds (0=use configured default)"
+    ),
+    parallel_agents: int = typer.Option(
+        1,
+        "--parallel-agents",
+        min=1,
+        help="Number of child agents to fan out across discovered surfaces (1 disables fan-out)",
+    ),
+    parallel_depth: int = typer.Option(
+        1,
+        "--parallel-depth",
+        min=1,
+        help="Bounded number of child-agent surface discovery waves",
+    ),
+    worker_rounds: int = typer.Option(
+        3,
+        "--worker-rounds",
+        min=1,
+        help="Agent rounds per child surface worker",
+    ),
+    surface_limit: int = typer.Option(
+        20,
+        "--surface-limit",
+        min=1,
+        help="Maximum discovered surfaces considered for child-agent fan-out",
+    ),
+    safe_probes: bool = typer.Option(
+        True,
+        "--safe-probes/--no-safe-probes",
+        help="After nmap, perform only non-destructive verification probes by default",
+    ),
+    prompt: Optional[str] = typer.Option(
+        None, "--prompt", help="Custom natural language prompt (overrides auto-generated prompt)"
+    ),
+    only_port: Optional[int] = typer.Option(
+        None, "--only-port", help="Restrict testing to a single port"
+    ),
+    only_host: Optional[str] = typer.Option(
+        None, "--only-host", help="Restrict testing to a single host"
+    ),
+    blocked_host: Optional[str] = typer.Option(
+        None, "--blocked-host", help="Explicitly blocked host"
+    ),
+    allow_actions: Optional[str] = typer.Option(
+        None, "--allow-actions", help="Comma-separated allowed actions"
+    ),
+    block_actions: Optional[str] = typer.Option(
+        None, "--block-actions", help="Comma-separated blocked actions"
+    ),
+    resume: bool = typer.Option(True, "--resume/--no-resume", help="Resume previous target state"),
+    snapshot: Optional[str] = typer.Option(
+        None, "--snapshot", help="Resume from a specific target snapshot id"
+    ),
+) -> None:
+    """Run nmap-based network scanning and weak-link follow-up."""
+    normalized_profile = profile.strip().lower()
+    if normalized_profile not in {"adaptive", "fast", "thorough", "stealth"}:
+        err_console.print("[!] profile must be one of: adaptive, fast, thorough, stealth")
+        raise typer.Exit(1)
+
+    detected_wifi = None
+    scan_target = target.strip() if target else ""
+    if not scan_target:
+        from vulnbot.agent.network_scan import detect_connected_wifi_target
+
+        try:
+            detected_wifi = detect_connected_wifi_target()
+            scan_target = detected_wifi.cidr
+        except RuntimeError as exc:
+            err_console.print(f"[!] {exc}")
+            raise typer.Exit(1)
+
+    port_hint = f" limited to ports {ports}" if ports else ""
+    follow_up = (
+        "Then prioritize weak links and perform safe, non-destructive verification probes only."
+        if safe_probes
+        else "Then summarize weak links without running follow-up probes."
+    )
+    task_prompt = prompt if prompt else (
+        f"Perform an authorized {normalized_profile} network scan against {scan_target}{port_hint}. "
+        f"Use the nmap_scan tool with profile={normalized_profile}"
+        f"{f' and ports={ports}' if ports else ''}. "
+        f"{follow_up} Record open services and candidate weak-link findings in target state. "
+        "Do not brute force credentials, run destructive payloads, or perform post-exploitation."
+    )
+    task_prompt = _append_cli_constraints_compat(
+        task_prompt,
+        only_port,
+        only_host,
+        None,
+        blocked_host,
+        None,
+    )
+
+    effective_allow_actions = allow_actions
+    effective_block_actions = block_actions
+    if safe_probes and not allow_actions and not block_actions:
+        effective_allow_actions = "recon,scan"
+    task_prompt = _append_action_constraints(
+        task_prompt, effective_allow_actions, effective_block_actions
+    )
+
+    violation = validate_action_constraints("scan", extract_task_constraints(task_prompt))
+    if violation is not None:
+        err_console.print(f"[!] {violation}")
+        raise typer.Exit(1)
+
+    console.print(
+        Panel(
+            f"Target: [bold]{scan_target}[/]\n"
+            + (
+                f"Wi-Fi interface: [bold]{detected_wifi.interface}[/] ({detected_wifi.address})\n"
+                if detected_wifi
+                else ""
+            )
+            +
+            f"Profile: [bold]{normalized_profile}[/]\n"
+            f"Ports: [bold]{ports or 'profile default'}[/]\n"
+            f"Follow-up: [bold]{'safe probes' if safe_probes else 'summary only'}[/]\n"
+            f"Parallel agents: [bold]{parallel_agents}[/]"
+            + (
+                f" (depth {parallel_depth}, {worker_rounds} rounds/worker)"
+                if parallel_agents > 1
+                else ""
+            ),
+            title="Network Scan",
+            border_style="cyan",
+        )
+    )
+
+    async def _run():
+        async def runner(agent, _config):
+            sink = TerminalStreamSink(console, _config.session.show_thinking)
+            rounds = max_rounds if max_rounds > 0 else _config.session.max_rounds
+            if parallel_agents > 1:
+                from vulnbot.agent.parallel_agents import run_parallel_pentest
+
+                def agent_factory():
+                    return agent.__class__(_config, getattr(agent, "mcp_manager", None))
+
+                return await run_parallel_pentest(
+                    agent,
+                    agent_factory=agent_factory,
+                    user_input=task_prompt,
+                    target=scan_target,
+                    discovery_rounds=rounds,
+                    worker_rounds=worker_rounds,
+                    max_agents=parallel_agents,
+                    max_depth=parallel_depth,
+                    surface_limit=surface_limit,
+                    stream_sink=sink,
+                )
+            return await agent.auto_pentest(
+                task_prompt,
+                target=scan_target,
+                max_rounds=rounds,
+                stream_sink=sink,
+            )
+
+        await _run_cli_orchestrated_task(
+            command="network-scan",
+            target=scan_target,
+            resume=resume,
+            snapshot=snapshot,
+            runner=runner,
+        )
+
+    asyncio.run(_run())
+
+
 @app.command()
 def exploit(
     target: str = typer.Argument(..., help="Target host/IP/URL"),
@@ -1286,9 +1802,59 @@ def report(
         console.print(f"[+] PDF exported: {out}")
 
 
+def _print_cli_manual(topic: Optional[str], output_format: str) -> None:
+    """Print the packaged CLI manual, normalizing user-facing errors."""
+    try:
+        console.out(render_manual(output_format, topic), end="")
+    except ValueError as exc:
+        err_console.print(f"[!] {exc}")
+        err_console.print(f"    Available topics: {', '.join(available_topics())}")
+        raise typer.Exit(1) from exc
+
+
+@app.command("manual")
+def manual_command(
+    topic: Optional[str] = typer.Argument(
+        None, help="Optional manual topic, e.g. run, network-scan, config"
+    ),
+    output_format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: text, markdown, man",
+    ),
+) -> None:
+    """Print the full VulnBot CLI manual."""
+    _print_cli_manual(topic, output_format)
+
+
+@app.command("man")
+def man_command(
+    topic: Optional[str] = typer.Argument(
+        None, help="Optional manual topic, e.g. run, network-scan, config"
+    ),
+    output_format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: text, markdown, man",
+    ),
+) -> None:
+    """Alias for 'vulnbot manual'."""
+    _print_cli_manual(topic, output_format)
+
+
 
 config_app = typer.Typer(help="Manage configuration")
 app.add_typer(config_app, name="config")
+
+
+@config_app.callback(invoke_without_command=True)
+def config_root(ctx: typer.Context) -> None:
+    """Open the interactive config editor when no subcommand is provided."""
+    if ctx.resilient_parsing or ctx.invoked_subcommand is not None:
+        return
+    run_config_tui()
 
 
 @config_app.command("set")
@@ -1785,8 +2351,29 @@ def _extract_target_from_input(user_input: str) -> Optional[str]:
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context) -> None:
+def main(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="Show version and exit.",
+        is_eager=True,
+    ),
+    show_manual: bool = typer.Option(
+        False,
+        "--man",
+        "--manual",
+        help="Show the full CLI manual and exit.",
+        is_eager=True,
+    ),
+) -> None:
     """Open the classic CLI/REPL by default."""
+    if version:
+        console.print(__version__)
+        raise typer.Exit()
+    if show_manual:
+        _print_cli_manual(None, "text")
+        raise typer.Exit()
     if ctx.invoked_subcommand is None:
         _run_repl()
 
