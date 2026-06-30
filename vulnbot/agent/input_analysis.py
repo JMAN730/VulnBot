@@ -73,6 +73,34 @@ def detect_phase(user_input: str) -> Optional[PentestPhase]:
     return None
 
 
+_FRESH_RECON_PATTERNS = (
+    "rescan",
+    "re-scan",
+    "re scan",
+    "scan again",
+    "fresh recon",
+    "fresh reconnaissance",
+    "redo recon",
+    "redo reconnaissance",
+    "re-recon",
+    "start over",
+    "start fresh",
+    "from scratch",
+)
+
+
+def wants_fresh_recon(user_input: str) -> bool:
+    """Detect an explicit request to re-run reconnaissance from scratch.
+
+    Returns True when the prompt contains a force-fresh-recon keyword such as
+    "rescan", "fresh recon", or "start over"; False for empty or ordinary input.
+    """
+    if not user_input:
+        return False
+    input_lower = user_input.lower()
+    return any(pattern in input_lower for pattern in _FRESH_RECON_PATTERNS)
+
+
 def detect_target(user_input: str) -> Optional[str]:
     """Extract target from user input."""
     for pattern in (

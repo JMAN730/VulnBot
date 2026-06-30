@@ -5,6 +5,31 @@ from __future__ import annotations
 from typing import Any
 
 
+def _render_recon_assets(recon_data: dict[str, Any], limit: int = 10) -> str:
+    """Render concrete restored recon assets for the round prompt."""
+    lines: list[str] = []
+
+    services = recon_data.get("network_services")
+    if isinstance(services, list) and services:
+        rendered = []
+        for item in services[:limit]:
+            if isinstance(item, dict):
+                port = item.get("port", "?")
+                name = item.get("service", item.get("name", ""))
+                rendered.append(f"{port}/{name}".rstrip("/"))
+            else:
+                rendered.append(str(item))
+        lines.append(f"  - Open services: {', '.join(rendered)}")
+
+    for category, label in (("subdomains", "Subdomains"), ("paths", "Paths"), ("params", "Params")):
+        values = recon_data.get(category)
+        if isinstance(values, list) and values:
+            shown = ", ".join(str(v) for v in values[:limit])
+            lines.append(f"  - {label}: {shown}")
+
+    return "\n".join(lines)
+
+
 def build_round_context(agent: Any, round_num: int, max_rounds: int) -> str:
     """Build the context string for the current autonomous loop round."""
     state = agent.context.state
@@ -71,7 +96,19 @@ def build_round_context(agent: Any, round_num: int, max_rounds: int) -> str:
             for failure in failed_attempts[-10:]:
                 failed_summary += f"\n  - {failure}"
 
-    recon_summary = f"\nRecon data: {list(state.recon_data.keys())}" if state.recon_data else ""
+    if getattr(agent.runtime, "reuse_recon", False) and state.recon_data:
+        recon_assets = _render_recon_assets(state.recon_data)
+        recon_summary = (
+            "\n\nRecon for this target is already complete (results below). "
+            "Do NOT re-run port scans or re-enumerate hosts/directories unless a "
+            "concrete gap is identified — start from Vulnerability Discovery and "
+            "build on this data."
+            f"\nExisting recon assets:\n{recon_assets}"
+        )
+    elif state.recon_data:
+        recon_summary = f"\nRecon data: {list(state.recon_data.keys())}"
+    else:
+        recon_summary = ""
     resume_summary = f"\n\n{state.resume_summary}" if getattr(state, "resume_summary", "") else ""
     notes_summary = f"\nImportant notes: {'; '.join(state.notes[-5:])}" if state.notes else ""
 

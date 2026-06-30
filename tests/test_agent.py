@@ -204,6 +204,59 @@ class TestAgentAutoSave:
         assert saved["count"] == 0
 
 
+class TestPriorRecon:
+    """Test reuse-of-prior-recon helpers on SessionState."""
+
+    def test_has_prior_recon_false_on_empty(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        assert state.has_prior_recon() is False
+
+    def test_has_prior_recon_true_with_recon_assets(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        state.recon_data["network_services"] = [{"port": 80, "service": "http"}]
+        assert state.has_prior_recon() is True
+
+    def test_has_prior_recon_true_when_phase_past_recon(self):
+        from vulnbot.agent.context import PentestPhase, SessionState
+
+        state = SessionState(target="https://example.com")
+        state.phase = PentestPhase.EXPLOITATION
+        assert state.has_prior_recon() is True
+
+    def test_has_prior_recon_ignores_empty_lists(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        state.recon_data["subdomains"] = []
+        assert state.has_prior_recon() is False
+
+    def test_mark_recon_complete_from_data(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        assert state.is_recon_complete() is False
+        state.mark_recon_complete_from_data()
+        assert state.is_recon_complete() is True
+
+    def test_has_prior_recon_true_with_legacy_ports(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        state.recon_data["ports"] = [80, 443]
+        assert state.has_prior_recon() is True
+
+    def test_has_prior_recon_true_with_legacy_services(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        state.recon_data["services"] = ["http", "https"]
+        assert state.has_prior_recon() is True
+
+
 class TestTargetState:
     """Test target-level resume state."""
 
@@ -1760,3 +1813,226 @@ class TestAgentCoreLoop:
         assert cycle_results[0].cycle_num == 1
         assert cycle_results[-1].cycle_num == 3
         assert all(cr.total_steps >= 0 for cr in cycle_results)
+
+
+class TestWantsFreshRecon:
+    """Test the force-fresh-recon keyword detector."""
+
+    def test_detects_rescan_tokens(self):
+        from vulnbot.agent.input_analysis import wants_fresh_recon
+
+        for text in [
+            "rescan example.com",
+            "please re-scan the host",
+            "do a fresh recon",
+            "redo recon from scratch",
+            "scan again, ignore old data",
+            "start over on this target",
+        ]:
+            assert wants_fresh_recon(text) is True, text
+
+    def test_ignores_ordinary_prompts(self):
+        from vulnbot.agent.input_analysis import wants_fresh_recon
+
+        assert wants_fresh_recon("exploit the SQL injection") is False
+        assert wants_fresh_recon("continue the pentest") is False
+        assert wants_fresh_recon("") is False
+
+
+class TestResetRuntimePreservesRecon:
+    """Test preserve_recon path of _reset_runtime_state."""
+
+    def test_preserve_recon_keeps_dimensions(self):
+        from vulnbot.agent.context import PentestPhase
+        from vulnbot.agent.core import AgentCore
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = AgentCore(VulnBotConfig())
+        agent.context.state.recon_dimensions_completed = {
+            "server": True,
+            "website": True,
+            "domain": True,
+            "personnel": False,
+        }
+        agent._reset_runtime_state(
+            user_input="continue", detected_phase=PentestPhase.VULN_DISCOVERY, preserve_recon=True
+        )
+        assert agent.context.state.recon_dimensions_completed["server"] is True
+        assert agent.runtime.is_recon_phase is False
+
+    def test_default_resets_dimensions(self):
+        from vulnbot.agent.context import PentestPhase
+        from vulnbot.agent.core import AgentCore
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = AgentCore(VulnBotConfig())
+        agent.context.state.recon_dimensions_completed = {
+            "server": True,
+            "website": True,
+            "domain": True,
+            "personnel": True,
+        }
+        agent._reset_runtime_state(user_input="recon", detected_phase=PentestPhase.RECON)
+        assert agent.context.state.recon_dimensions_completed["server"] is False
+
+
+class TestAutoPentestResumeAware:
+    """Test that auto_pentest reuses recon instead of resetting to Recon."""
+
+    def _make_agent(self, monkeypatch):
+        from vulnbot.agent.core import AgentCore
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = AgentCore(VulnBotConfig())
+
+        async def fake_call_llm_auto(_agent, _system, _ctx, stream_sink=None):
+            return "Nothing further. [DONE]"
+
+        import vulnbot.agent.loop_controller as lc
+
+        monkeypatch.setattr(lc, "call_llm_auto", fake_call_llm_auto)
+        return agent
+
+    async def test_reuses_recon_starts_in_vuln_discovery(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+
+        await agent.auto_pentest("continue the pentest", target="https://example.com", max_rounds=1)
+
+        assert agent.runtime.reuse_recon is True
+        assert agent.runtime.is_recon_phase is False
+        assert agent.context.state.phase == PentestPhase.VULN_DISCOVERY
+
+    async def test_fresh_recon_keyword_forces_recon(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+
+        await agent.auto_pentest("rescan example.com", target="https://example.com", max_rounds=1)
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.phase == PentestPhase.RECON
+
+    async def test_fresh_recon_flag_forces_recon(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+
+        await agent.auto_pentest(
+            "continue", target="https://example.com", max_rounds=1, fresh_recon=True
+        )
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.phase == PentestPhase.RECON
+
+    async def test_no_prior_recon_starts_in_recon(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+
+        await agent.auto_pentest("pentest example.com", target="https://example.com", max_rounds=1)
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.phase == PentestPhase.RECON
+
+    async def test_reuse_honors_saved_phase_past_recon(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+        agent.context.state.advance_phase(PentestPhase.EXPLOITATION)
+
+        await agent.auto_pentest("continue the pentest", target="https://example.com", max_rounds=1)
+
+        assert agent.runtime.reuse_recon is True
+        assert agent.context.state.phase == PentestPhase.EXPLOITATION
+
+    async def test_fresh_recon_resets_completed_dimensions(self, monkeypatch):
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+        agent.context.state.recon_dimensions_completed = {
+            "server": True,
+            "website": True,
+            "domain": True,
+            "personnel": True,
+        }
+
+        await agent.auto_pentest(
+            "continue", target="https://example.com", max_rounds=1, fresh_recon=True
+        )
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.recon_dimensions_completed["server"] is False
+
+    async def test_fresh_recon_clears_stale_recon_data(self, monkeypatch):
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+        agent.context.state.recon_data["subdomains"] = ["old.example.com"]
+
+        await agent.auto_pentest(
+            "continue", target="https://example.com", max_rounds=1, fresh_recon=True
+        )
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.recon_data == {}
+
+    async def test_reuse_honors_explicit_recon_only_directive(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+
+        await agent.auto_pentest(
+            "Only allowed actions: recon", target="https://example.com", max_rounds=1
+        )
+
+        assert agent.runtime.reuse_recon is True
+        assert agent.context.state.phase == PentestPhase.RECON
+
+
+class TestRoundContextRecon:
+    """Test concrete recon rendering and reuse directive in round context."""
+
+    def _agent_with_recon(self, reuse: bool):
+        from vulnbot.agent.core import AgentCore
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = AgentCore(VulnBotConfig())
+        agent._reset_runtime_state(user_input="continue")
+        agent.runtime.reuse_recon = reuse
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [
+            {"port": 443, "service": "https"},
+            {"port": 22, "service": "ssh"},
+        ]
+        agent.context.state.recon_data["subdomains"] = ["api.example.com"]
+        return agent
+
+    def test_reuse_includes_directive_and_assets(self):
+        from vulnbot.agent.prompt_context import build_round_context
+
+        agent = self._agent_with_recon(reuse=True)
+        ctx = build_round_context(agent, round_num=1, max_rounds=5)
+        assert "already complete" in ctx.lower()
+        assert "do not re-run" in ctx.lower()
+        assert "443" in ctx
+        assert "api.example.com" in ctx
+
+    def test_no_reuse_omits_directive(self):
+        from vulnbot.agent.prompt_context import build_round_context
+
+        agent = self._agent_with_recon(reuse=False)
+        ctx = build_round_context(agent, round_num=1, max_rounds=5)
+        assert "do not re-run" not in ctx.lower()

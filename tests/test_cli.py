@@ -117,11 +117,19 @@ class TestCLI:
         assert called == [True]
 
     def test_repl_prompt_session_uses_persistent_history(self, monkeypatch, tmp_path):
+        from prompt_toolkit.application import create_app_session
+        from prompt_toolkit.input import DummyInput
+        from prompt_toolkit.output import DummyOutput
+
         import vulnbot.cli.main as cli_main
 
         monkeypatch.setattr(cli_main, "CONFIG_DIR", tmp_path)
 
-        session = cli_main._build_repl_prompt_session()
+        # Use dummy I/O: building a real PromptSession probes the actual
+        # console (fails with NoConsoleScreenBufferError on Windows CI
+        # runners, which have no attached console).
+        with create_app_session(input=DummyInput(), output=DummyOutput()):
+            session = cli_main._build_repl_prompt_session()
 
         assert isinstance(session.history, FileHistory)
         assert session.history.filename == str(tmp_path / "repl_history")
@@ -1397,6 +1405,8 @@ class TestCLI:
         assert "API Key: Updated" in output
 
     def test_config_tui_edits_api_keys_and_session(self, monkeypatch):
+        from pathlib import Path
+
         import vulnbot.cli.tui as tui_mod
         from vulnbot.config.schema import VulnBotConfig
 
@@ -1447,7 +1457,7 @@ class TestCLI:
         assert saved and saved[0] is config
         assert config.llm.provider == "deepseek"
         assert config.llm.api_keys == ["k1", "k2", "k3"]
-        assert str(config.session.output_dir) == "tmp/output"
+        assert config.session.output_dir == Path("tmp/output")
         assert config.session.max_rounds == 20
         assert config.session.show_thinking is False
         assert config.session.repl_parallel_enabled is True
@@ -1565,3 +1575,20 @@ class TestCLISubCommands:
         # Should not be a usage error (exit code 2)
         assert result.exit_code != 2
         # The command will fail for other reasons (no config, etc.), but that's okay
+
+
+class TestFreshReconI18n:
+    """Force-fresh-recon UI strings exist in both locales."""
+
+    def test_keys_present(self):
+        import json
+        from pathlib import Path
+
+        import vulnbot
+
+        base = Path(vulnbot.__file__).parent / "i18n"
+        en = json.loads((base / "en.json").read_text(encoding="utf-8"))
+        zh = json.loads((base / "zh.json").read_text(encoding="utf-8"))
+        for key in ("cli.fresh_recon_armed", "cli.recon_reused", "help.rescan"):
+            assert key in en, f"missing {key} in en.json"
+            assert key in zh, f"missing {key} in zh.json"
