@@ -41,6 +41,7 @@
   "help.status": "[cyan]status[/]             Show current status",
   "help.tools": "[cyan]tools[/]              List available MCP tools",
   "help.report": "[cyan]report <host>[/]      Generate a report from the current/selected target",
+  "help.parallel": "[cyan]parallel[/]           Show or tune REPL parallel auto-mode",
   "help.think": "[cyan]think[/]              Toggle thinking visibility",
   "help.think_on_off": "[cyan]think on/off[/]       Explicitly show or hide thinking",
   "help.persistent": "[cyan]persistent[/]         Start persistent testing for the current target",

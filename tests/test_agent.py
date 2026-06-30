@@ -992,6 +992,25 @@ class TestAgentCore:
         # Must NOT contain trailing dot - urlparse().hostname never returns trailing dots
         assert all(not h.endswith(".") for h in constraints.allowed_hosts)
 
+    def test_extract_task_constraints_preserves_cidr_target(self):
+        from vulnbot.agent.input_analysis import detect_target, extract_task_constraints
+
+        prompt = "Perform an authorized adaptive network scan against 192.168.50.0/24."
+        assert detect_target(prompt) == "192.168.50.0/24"
+
+        constraints = extract_task_constraints(prompt)
+        assert "192.168.50.0/24" in constraints.allowed_hosts
+        assert "192.168.50.0" not in constraints.allowed_hosts
+
+    def test_host_matches_allowed_scope_for_cidr(self):
+        from vulnbot.agent.constraint_policy import host_matches_allowed_scope
+
+        allowed = ["192.168.50.0/24"]
+        assert host_matches_allowed_scope("192.168.50.0/24", allowed)
+        assert host_matches_allowed_scope("192.168.50.1", allowed)
+        assert host_matches_allowed_scope("192.168.50.255", allowed)
+        assert not host_matches_allowed_scope("192.168.51.1", allowed)
+
     def test_round_context_includes_hard_constraints(self):
         from vulnbot.agent.context import PentestPhase
 

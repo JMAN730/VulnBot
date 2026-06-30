@@ -9,3 +9,5 @@ build/
 frontend/node_modules/
 *.tsbuildinfo
 .vs/
+.worktrees/
+.claude/

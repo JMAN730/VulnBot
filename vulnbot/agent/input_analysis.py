@@ -77,6 +77,7 @@ def detect_target(user_input: str) -> Optional[str]:
     """Extract target from user input."""
     for pattern in (
         r"(https?://[a-zA-Z0-9][-a-zA-Z0-9.:]*)",
+        r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2})",
         r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
         r"([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)+)",
     ):
