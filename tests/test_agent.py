@@ -1940,3 +1940,39 @@ class TestAutoPentestResumeAware:
 
         assert agent.runtime.reuse_recon is False
         assert agent.context.state.phase == PentestPhase.RECON
+
+
+class TestRoundContextRecon:
+    """Test concrete recon rendering and reuse directive in round context."""
+
+    def _agent_with_recon(self, reuse: bool):
+        from vulnbot.agent.core import AgentCore
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = AgentCore(VulnBotConfig())
+        agent._reset_runtime_state(user_input="continue")
+        agent.runtime.reuse_recon = reuse
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [
+            {"port": 443, "service": "https"},
+            {"port": 22, "service": "ssh"},
+        ]
+        agent.context.state.recon_data["subdomains"] = ["api.example.com"]
+        return agent
+
+    def test_reuse_includes_directive_and_assets(self):
+        from vulnbot.agent.prompt_context import build_round_context
+
+        agent = self._agent_with_recon(reuse=True)
+        ctx = build_round_context(agent, round_num=1, max_rounds=5)
+        assert "already complete" in ctx.lower()
+        assert "do not re-run" in ctx.lower()
+        assert "443" in ctx
+        assert "api.example.com" in ctx
+
+    def test_no_reuse_omits_directive(self):
+        from vulnbot.agent.prompt_context import build_round_context
+
+        agent = self._agent_with_recon(reuse=False)
+        ctx = build_round_context(agent, round_num=1, max_rounds=5)
+        assert "do not re-run" not in ctx.lower()
