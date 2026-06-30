@@ -125,6 +125,7 @@ class AgentCore:
         self,
         user_input: str = "",
         detected_phase: Optional[PentestPhase] = None,
+        preserve_recon: bool = False,
     ) -> None:
         """Reset per-run runtime state to avoid cross-run contamination."""
         user_lower = user_input.lower() if user_input else ""
@@ -161,12 +162,15 @@ class AgentCore:
         if self.mcp_manager and hasattr(self.mcp_manager, "set_task_constraints"):
             self.mcp_manager.set_task_constraints(self.context.state.task_constraints)
 
-        self.context.state.recon_dimensions_completed = {
-            "server": False,
-            "website": False,
-            "domain": False,
-            "personnel": False,
-        }
+        if preserve_recon:
+            self.runtime.is_recon_phase = False
+        else:
+            self.context.state.recon_dimensions_completed = {
+                "server": False,
+                "website": False,
+                "domain": False,
+                "personnel": False,
+            }
         social_engineering_keywords = [
             "social engineering",
             "social-engineering",

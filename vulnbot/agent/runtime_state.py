@@ -48,6 +48,7 @@ class RuntimeState:
     post_flag_rounds: int = 0
 
     is_recon_phase: bool = False
+    reuse_recon: bool = False
     rounds_without_progress: int = 0
     last_findings_count: int = 0
     last_notes_count: int = 0

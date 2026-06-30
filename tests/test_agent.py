@@ -1835,3 +1835,40 @@ class TestWantsFreshRecon:
         assert wants_fresh_recon("exploit the SQL injection") is False
         assert wants_fresh_recon("continue the pentest") is False
         assert wants_fresh_recon("") is False
+
+
+class TestResetRuntimePreservesRecon:
+    """Test preserve_recon path of _reset_runtime_state."""
+
+    def test_preserve_recon_keeps_dimensions(self):
+        from vulnbot.agent.context import PentestPhase
+        from vulnbot.agent.core import AgentCore
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = AgentCore(VulnBotConfig())
+        agent.context.state.recon_dimensions_completed = {
+            "server": True,
+            "website": True,
+            "domain": True,
+            "personnel": False,
+        }
+        agent._reset_runtime_state(
+            user_input="continue", detected_phase=PentestPhase.VULN_DISCOVERY, preserve_recon=True
+        )
+        assert agent.context.state.recon_dimensions_completed["server"] is True
+        assert agent.runtime.is_recon_phase is False
+
+    def test_default_resets_dimensions(self):
+        from vulnbot.agent.context import PentestPhase
+        from vulnbot.agent.core import AgentCore
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = AgentCore(VulnBotConfig())
+        agent.context.state.recon_dimensions_completed = {
+            "server": True,
+            "website": True,
+            "domain": True,
+            "personnel": True,
+        }
+        agent._reset_runtime_state(user_input="recon", detected_phase=PentestPhase.RECON)
+        assert agent.context.state.recon_dimensions_completed["server"] is False
