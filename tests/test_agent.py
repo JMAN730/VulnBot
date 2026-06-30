@@ -1811,3 +1811,27 @@ class TestAgentCoreLoop:
         assert cycle_results[0].cycle_num == 1
         assert cycle_results[-1].cycle_num == 3
         assert all(cr.total_steps >= 0 for cr in cycle_results)
+
+
+class TestWantsFreshRecon:
+    """Test the force-fresh-recon keyword detector."""
+
+    def test_detects_rescan_tokens(self):
+        from vulnbot.agent.input_analysis import wants_fresh_recon
+
+        for text in [
+            "rescan example.com",
+            "please re-scan the host",
+            "do a fresh recon",
+            "redo recon from scratch",
+            "scan again, ignore old data",
+            "start over on this target",
+        ]:
+            assert wants_fresh_recon(text) is True, text
+
+    def test_ignores_ordinary_prompts(self):
+        from vulnbot.agent.input_analysis import wants_fresh_recon
+
+        assert wants_fresh_recon("exploit the SQL injection") is False
+        assert wants_fresh_recon("continue the pentest") is False
+        assert wants_fresh_recon("") is False
