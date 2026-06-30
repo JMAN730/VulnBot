@@ -792,6 +792,8 @@ class SessionState(BaseModel):
             "subdomains",
             "paths",
             "params",
+            "ports",
+            "services",
         )
         for category in recon_categories:
             value = self.recon_data.get(category)

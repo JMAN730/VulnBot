@@ -242,6 +242,20 @@ class TestPriorRecon:
         state.mark_recon_complete_from_data()
         assert state.is_recon_complete() is True
 
+    def test_has_prior_recon_true_with_legacy_ports(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        state.recon_data["ports"] = [80, 443]
+        assert state.has_prior_recon() is True
+
+    def test_has_prior_recon_true_with_legacy_services(self):
+        from vulnbot.agent.context import SessionState
+
+        state = SessionState(target="https://example.com")
+        state.recon_data["services"] = ["http", "https"]
+        assert state.has_prior_recon() is True
+
 
 class TestTargetState:
     """Test target-level resume state."""
@@ -1971,6 +1985,33 @@ class TestAutoPentestResumeAware:
 
         assert agent.runtime.reuse_recon is False
         assert agent.context.state.recon_dimensions_completed["server"] is False
+
+    async def test_fresh_recon_clears_stale_recon_data(self, monkeypatch):
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+        agent.context.state.recon_data["subdomains"] = ["old.example.com"]
+
+        await agent.auto_pentest(
+            "continue", target="https://example.com", max_rounds=1, fresh_recon=True
+        )
+
+        assert agent.runtime.reuse_recon is False
+        assert agent.context.state.recon_data == {}
+
+    async def test_reuse_honors_explicit_recon_only_directive(self, monkeypatch):
+        from vulnbot.agent.context import PentestPhase
+
+        agent = self._make_agent(monkeypatch)
+        agent.context.state.target = "https://example.com"
+        agent.context.state.recon_data["network_services"] = [{"port": 443, "service": "https"}]
+
+        await agent.auto_pentest(
+            "Only allowed actions: recon", target="https://example.com", max_rounds=1
+        )
+
+        assert agent.runtime.reuse_recon is True
+        assert agent.context.state.phase == PentestPhase.RECON
 
 
 class TestRoundContextRecon:

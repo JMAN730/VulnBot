@@ -38,7 +38,12 @@ async def auto_pentest(
 
     if reuse_recon:
         saved_phase = agent.context.state.phase
-        if detected_phase and detected_phase != PentestPhase.RECON:
+        if detected_phase == PentestPhase.RECON:
+            # The task explicitly scoped this run to recon (e.g. "Only
+            # allowed actions: recon") -- honor that even though prior
+            # recon exists, instead of advancing past the user's scope.
+            target_phase = PentestPhase.RECON
+        elif detected_phase:
             target_phase = detected_phase
         elif saved_phase not in (PentestPhase.IDLE, PentestPhase.RECON):
             target_phase = saved_phase
@@ -47,6 +52,11 @@ async def auto_pentest(
         agent.context.state.mark_recon_complete_from_data()
     else:
         target_phase = detected_phase or PentestPhase.RECON
+        if force_fresh:
+            # Purge stale recon assets so save_target_state's merge logic
+            # can't resurrect them into a run that asked to start clean.
+            # Findings live in a separate field and are untouched.
+            agent.context.state.recon_data = {}
 
     agent.context.state.advance_phase(target_phase)
 
