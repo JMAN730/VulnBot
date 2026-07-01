@@ -1,6 +1,7 @@
 """Tests for multi-key failover rotation in the LLM call retry loop."""
 
-from types import SimpleNamespace
+import sys
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -131,7 +132,16 @@ class TestAgentCoreRotation:
         assert agent._key_pool == ["solo"]
         assert agent.rotate_api_key() is False
 
-    def test_rotate_advances_and_invalidates_client(self):
+    def test_rotate_advances_and_invalidates_client(self, monkeypatch):
+        fake_openai = ModuleType("openai")
+
+        class FakeOpenAI:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        fake_openai.OpenAI = FakeOpenAI
+        monkeypatch.setitem(sys.modules, "openai", fake_openai)
+
         agent = self._agent(api_keys=["k1", "k2"])
         agent._get_client()
         assert agent._client is not None

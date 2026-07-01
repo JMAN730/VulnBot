@@ -28,40 +28,26 @@ Confidence is noted per finding: **High** = verified zero production call sites;
 
 ---
 
-## 1. Data corruption — garbled tool descriptions (HIGH severity)
+## 1. Data corruption - garbled tool descriptions (resolved)
 
-**File:** `vulnbot/skills/crypto_tools.py` — **22 occurrences**
+**File:** `vulnbot/skills/crypto_tools.py`
 
-The human-readable descriptions and parameter help for the crypto operations were
-mangled by what looks like a bulk find-and-replace (likely during the
-ClawBot→VulnBot rename or a de-localization pass). The original Chinese text was
-replaced with the literal English word **`text`**, while the Chinese full-width
-punctuation (`（ ） ，`) was left intact. These strings are surfaced to the LLM (and
-users) as the `crypto_decode` tool's operation catalog, so the corruption is
-user/agent-facing, not just cosmetic.
+The original audit found user-facing placeholder text in several crypto operation
+descriptions and optional parameter labels. This was resolved in the public-alpha
+hardening pass by replacing the placeholders with explicit English descriptions
+for ROT13, Caesar, JWT, AES, and auto-detect decode operations.
 
-Examples:
-```python
-@_register("rot13_encode", "encode", "ROT13 text（text，text）", ["input"])           # :270
-@_register("caesar_encode", "encode", "Caesar text（text）", ["input"], {"shift": "text，text3"})  # :282
-@_register("auto_decode", "decode", "text（text）", ["input"])                         # :537
-@_register("jwt_decode",  "decode", "JWT text（Header + Payload）", ["input"])          # :389
-# ...affects base64/base32/base58/hex/url/html/unicode/caesar/morse/jwt/aes/auto descriptions
-```
-**Recommendation:** Restore real English (or Chinese) descriptions for all ~29
-registered operations. Functionality is unaffected; only the metadata is broken.
+Regression coverage now checks operation descriptions and optional parameter help
+for the stale placeholder tokens.
 
 ---
 
-## 2. Byte-order mark in source file (LOW severity)
+## 2. Byte-order mark in source file (resolved)
 
 **File:** `vulnbot/config/schema.py:1`
 
-The file begins with a UTF-8 BOM (`U+FEFF`). It's the only `.py` file in the repo
-with one, and it makes the file fail a plain `ast.parse(..., encoding="utf-8")`
-(needs `utf-8-sig`). Harmless at runtime under CPython but inconsistent with the
-rest of the tree and a trap for tooling.
-**Recommendation:** Re-save without BOM.
+The original audit found a UTF-8 BOM (`U+FEFF`) at the start of the schema module.
+The file has been re-saved as plain UTF-8 during the public-alpha hardening pass.
 
 ---
 

@@ -1,4 +1,4 @@
-﻿"""VulnBot configuration schema - Pydantic models for type-safe config."""
+"""VulnBot configuration schema - Pydantic models for type-safe config."""
 
 from __future__ import annotations
 

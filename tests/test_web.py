@@ -129,7 +129,8 @@ class TestWebServices:
         from vulnbot.web.schemas import ProviderModelsRequest
 
         config = VulnBotConfig()
-        config.llm.api_key = "sk-test"
+        config.llm.api_key = "sk-fallback"
+        config.llm.api_keys = ["sk-primary", "sk-secondary"]
         config.llm.base_url = "https://api.example.com/v1"
         monkeypatch.setattr(provider_service, "load_config", lambda: config)
 
@@ -145,7 +146,7 @@ class TestWebServices:
         resp = provider_service.fetch_models(ProviderModelsRequest())
         assert resp.has_api_key is True
         assert resp.models == ["model-b", "model-a"]
-        assert captured == {"base_url": "https://api.example.com/v1", "api_key": "sk-test"}
+        assert captured == {"base_url": "https://api.example.com/v1", "api_key": "sk-primary"}
 
     def test_web_provider_service_fetch_models_requires_key(self, monkeypatch):
         import vulnbot.web.services.provider_service as provider_service
@@ -232,6 +233,21 @@ class TestWebServices:
         assert snapshots
         assert snapshots[0].snapshot_id
 
+    def test_web_target_service_rejects_snapshot_traversal(self, monkeypatch, tmp_path):
+        import vulnbot.target_state.store as store_mod
+        import vulnbot.web.services.target_service as target_service
+        from vulnbot.agent.context import SessionState
+
+        monkeypatch.setattr(store_mod, "TARGETS_DIR", tmp_path)
+        monkeypatch.setattr(target_service, "TARGETS_DIR", tmp_path)
+
+        state = SessionState(target="https://example.com")
+        store_mod.save_target_state("https://example.com", state, command="scan")
+
+        assert target_service.get_preview("https://example.com", snapshot_id="../state") is None
+        assert target_service.get_diff("https://example.com", "../state") is None
+        assert target_service.rollback_target("https://example.com", "../state") is False
+
     def test_web_target_service_preview_and_diff(self, monkeypatch, tmp_path):
         import vulnbot.target_state.store as store_mod
         import vulnbot.web.services.target_service as target_service
@@ -296,7 +312,7 @@ class TestWebServices:
         state.add_finding(finding)
         store_mod.save_target_state("https://example.com", state, command="scan")
 
-        out = tmp_path / "report.md"
+        out = tmp_path / "sessions" / "report.md"
         path = report_service.generate_target_report("https://example.com", str(out))
         assert Path(path).exists()
 
@@ -358,6 +374,32 @@ class TestWebServices:
         assert report_service.resolve_report_path(str(report)) == report.resolve()
         with pytest.raises(PermissionError):
             report_service.resolve_report_path(str(outside))
+
+    def test_web_report_service_rejects_unsupported_report_type(self, monkeypatch, tmp_path):
+        import vulnbot.web.services.report_service as report_service
+
+        sessions_dir = tmp_path / "sessions"
+        sessions_dir.mkdir()
+        report = sessions_dir / "demo.txt"
+        report.write_text("demo", encoding="utf-8")
+        monkeypatch.setattr(report_service, "SESSIONS_DIR", sessions_dir)
+
+        with pytest.raises(PermissionError):
+            report_service.resolve_report_path(str(report))
+
+    def test_web_report_output_path_stays_in_sessions_dir(self, monkeypatch, tmp_path):
+        import vulnbot.web.services.report_service as report_service
+
+        sessions_dir = tmp_path / "sessions"
+        monkeypatch.setattr(report_service, "SESSIONS_DIR", sessions_dir)
+
+        allowed = report_service.resolve_report_output_path(str(sessions_dir / "demo.md"), "markdown")
+        assert allowed == (sessions_dir / "demo.md").resolve()
+
+        with pytest.raises(PermissionError):
+            report_service.resolve_report_output_path(str(tmp_path / "outside.md"), "markdown")
+        with pytest.raises(PermissionError):
+            report_service.resolve_report_output_path(str(sessions_dir / "demo.html"), "markdown")
 
     def test_web_report_service_lists_reports_by_modified_time(self, monkeypatch, tmp_path):
         import os
@@ -852,6 +894,51 @@ class TestWebApp:
         assert web_app.resolve_web_index() == dist_dir / "index.html"
         assert web_app.resolve_web_asset("assets/app.js") == dist_dir / "index.html"
 
+    def test_resolve_web_asset_blocks_path_traversal(self, monkeypatch, tmp_path):
+        import vulnbot.web.app as web_app
+
+        project = tmp_path / "project"
+        dist_dir = project / "frontend" / "dist"
+        static_dir = project / "static"
+        dist_dir.mkdir(parents=True)
+        static_dir.mkdir()
+        (dist_dir / "index.html").write_text("dist", encoding="utf-8")
+        outside = project / "secret.txt"
+        outside.write_text("secret", encoding="utf-8")
+
+        monkeypatch.setattr(web_app, "FRONTEND_DIST_DIR", dist_dir)
+        monkeypatch.setattr(web_app, "STATIC_DIR", static_dir)
+
+        assert web_app.resolve_web_asset("../secret.txt") == dist_dir / "index.html"
+
+    def test_web_schema_rejects_unsafe_config_values(self):
+        from pydantic import ValidationError
+
+        from vulnbot.web.schemas import ConfigUpdateRequest, ProviderModelsRequest
+
+        with pytest.raises(ValidationError):
+            ConfigUpdateRequest(base_url="file:///etc/passwd")
+        with pytest.raises(ValidationError):
+            ConfigUpdateRequest(base_url="https://user:pass@example.com/v1")
+        with pytest.raises(ValidationError):
+            ConfigUpdateRequest(max_rounds=0)
+        with pytest.raises(ValidationError):
+            ConfigUpdateRequest(python_execute_mode="unsafe")
+
+        assert ProviderModelsRequest(base_url=" https://api.example.com/v1/ ").base_url == (
+            "https://api.example.com/v1"
+        )
+
+    def test_cli_web_allows_loopback_aliases_in_dry_run(self):
+        from vulnbot.cli.main import app
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["web", "--host", "localhost", "--dry-run"])
+        assert result.exit_code == 0
+
+        result = runner.invoke(app, ["web", "--host", "::1", "--dry-run"])
+        assert result.exit_code == 0
+
     def test_frontend_scaffold_exists(self):
         root = Path(__file__).resolve().parents[1] / "frontend"
         assert (root / "package.json").exists()
@@ -1191,3 +1278,22 @@ class TestWebApp:
             )
             assert diff.status_code == 200
             assert diff.json()["from_snapshot_id"] == "snap_a"
+
+    @pytest.mark.asyncio
+    async def test_web_app_adds_security_headers(self):
+        import httpx
+
+        import vulnbot.web.app as web_app
+
+        if not web_app.FASTAPI_AVAILABLE:
+            pytest.skip("FastAPI is not installed in this environment")
+
+        transport = httpx.ASGITransport(app=web_app.create_app())
+
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/api/health")
+
+        assert response.status_code == 200
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["x-frame-options"] == "DENY"
+        assert "frame-ancestors 'none'" in response.headers["content-security-policy"]

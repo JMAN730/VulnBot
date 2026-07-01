@@ -54,7 +54,7 @@ def fetch_models(request: ProviderModelsRequest) -> ProviderModelsResponse:
     """
     config = load_config()
     base_url = _resolve_base_url(request, config.llm.base_url)
-    api_key = config.llm.api_key
+    api_key = config.llm.primary_key()
 
     if not api_key:
         return ProviderModelsResponse(

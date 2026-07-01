@@ -37,6 +37,7 @@ from vulnbot.web.task_manager import WebTaskManager
 try:
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+    from starlette.middleware.base import BaseHTTPMiddleware
 
     FASTAPI_AVAILABLE = True
 except ImportError:  # pragma: no cover - exercised in CLI dry-run and tests
@@ -45,6 +46,7 @@ except ImportError:  # pragma: no cover - exercised in CLI dry-run and tests
     FileResponse = None  # type: ignore[assignment]
     JSONResponse = None  # type: ignore[assignment]
     StreamingResponse = None  # type: ignore[assignment]
+    BaseHTTPMiddleware = object  # type: ignore[assignment,misc]
     FASTAPI_AVAILABLE = False
 
 
@@ -64,19 +66,33 @@ def resolve_web_index() -> Path:
 
 def resolve_web_asset(path: str) -> Path:
     """Resolve a frontend asset path from dist or fallback static dir."""
-    normalized = path.lstrip("/").strip()
+    normalized = path.replace("\\", "/").lstrip("/").strip()
     if not normalized:
         return resolve_web_index()
 
-    dist_path = FRONTEND_DIST_DIR / normalized
-    if dist_path.exists() and dist_path.is_file():
+    dist_path = _resolve_contained_file(FRONTEND_DIST_DIR, normalized)
+    if dist_path:
         return dist_path
 
-    static_path = STATIC_DIR / normalized
-    if static_path.exists() and static_path.is_file():
+    static_path = _resolve_contained_file(STATIC_DIR, normalized)
+    if static_path:
         return static_path
 
     return resolve_web_index()
+
+
+def _resolve_contained_file(root: Path, relative_path: str) -> Path | None:
+    """Return a file under root, or None when the path escapes/does not exist."""
+    try:
+        candidate = (root / relative_path).resolve()
+        root_resolved = root.resolve()
+    except OSError:
+        return None
+    if candidate != root_resolved and root_resolved not in candidate.parents:
+        return None
+    if candidate.exists() and candidate.is_file():
+        return candidate
+    return None
 
 
 def create_app():
@@ -87,6 +103,7 @@ def create_app():
         )
 
     app = FastAPI(title="VulnBot Web UI", version="0.3.1")
+    app.add_middleware(SecurityHeadersMiddleware)
 
     @app.get("/api/health")
     async def health():
@@ -250,3 +267,26 @@ def create_app():
         return FileResponse(resolve_web_asset(full_path))
 
     return app
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add conservative browser security headers for the local Web UI."""
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; "
+            "connect-src 'self'; "
+            "frame-src 'self' about: data: blob:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'",
+        )
+        return response

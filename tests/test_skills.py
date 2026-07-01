@@ -441,3 +441,12 @@ class TestCryptoTools:
         assert "base64_decode" in ops
         assert "auto_decode" in ops
         assert "md5_hash" in ops
+
+    def test_operation_metadata_is_public_ready(self):
+        from vulnbot.skills.crypto_tools import list_operations
+
+        bad_tokens = ("text（", "text，", "textï", "â")
+        for name, info in list_operations().items():
+            values = [info["description"], info.get("optional_params", "")]
+            for value in values:
+                assert not any(token in value for token in bad_tokens), name
