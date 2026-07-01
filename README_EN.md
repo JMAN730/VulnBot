@@ -14,6 +14,11 @@
 
 **This project is a standalone AI penetration testing Agent.**
 
+**Public alpha:** VulnBot is public alpha software for authorized security
+testing, CTFs, labs, and controlled research. It is not a production security
+control or a replacement for human authorization, scoping, review, or reporting.
+See [SECURITY.md](SECURITY.md) before using or reporting security issues.
+
 <br>
 
 Built on LLM Agent + MCP Toolchain + Pentest Skill orchestration,
@@ -689,7 +694,7 @@ Connect with security enthusiasts to share, learn, and grow together.
 | Community Group | Developer Group |
 |:--:|:--:|
 | Join discussions and get the latest product updates and usage tips | Join us for open-source contributions and deep technical discussions |
-| ![VulnBot Community Group](assets/vulnbot-community.jpg) | ![VulnBot Developer Group](assets/vulnbot-developer-community.png) |
+| ![VulnBot Community Group](assets/vulnclaw-community.jpg) | ![VulnBot Developer Group](assets/vulnclaw-developer-community.png) |
 | **QQ Group: 954402631** | **QQ Group: 1065858551** |
 
 ---

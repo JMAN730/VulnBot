@@ -1,4 +1,4 @@
-"""VulnBot Crypto Toolkit — encoding/decoding, encryption/decryption utilities.
+"""VulnBot Crypto Toolkit - encoding/decoding, encryption/decryption utilities.
 
 Provides a unified interface for common crypto operations encountered
 during penetration testing and CTF challenges.
@@ -267,7 +267,7 @@ def _unicode_decode(input_str: str, **_) -> dict:
         return {"success": False, "result": "", "error": f"Unicode escape encode/decode: {e}"}
 
 
-@_register("rot13_encode", "encode", "ROT13 text（text，text）", ["input"])
+@_register("rot13_encode", "encode", "ROT13 transform (encode/decode)", ["input"])
 def _rot13(input_str: str, **_) -> dict:
     import codecs
 
@@ -276,11 +276,17 @@ def _rot13(input_str: str, **_) -> dict:
 
 
 # Alias: rot13_decode is the same as rot13_encode
-_register("rot13_decode", "decode", "ROT13 text（text）", ["input"])(_rot13)
+_register("rot13_decode", "decode", "ROT13 transform (same operation as encode)", ["input"])(
+    _rot13
+)
 
 
 @_register(
-    "caesar_encode", "encode", "Caesar text（text）", ["input"], {"shift": "text，text3"}
+    "caesar_encode",
+    "encode",
+    "Caesar cipher encode",
+    ["input"],
+    {"shift": "Integer shift amount, default 3"},
 )
 def _caesar_encode(input_str: str, shift: int = 3, **_) -> dict:
     result = []
@@ -296,9 +302,9 @@ def _caesar_encode(input_str: str, shift: int = 3, **_) -> dict:
 @_register(
     "caesar_decode",
     "decode",
-    "Caesar text（text）",
+    "Caesar cipher decode",
     ["input"],
-    {"shift": "text，text25text"},
+    {"shift": "Optional integer shift; omitted tries all 25 shifts"},
 )
 def _caesar_decode(input_str: str, shift: Optional[int] = None, **_) -> dict:
     if shift is not None:
@@ -386,7 +392,7 @@ def _sha512_hash(input_str: str, **_) -> dict:
 # ── JWT Operations ───────────────────────────────────────────────────
 
 
-@_register("jwt_decode", "decode", "JWT text（Header + Payload）", ["input"])
+@_register("jwt_decode", "decode", "Decode JWT header and payload", ["input"])
 def _jwt_decode(input_str: str, **_) -> dict:
     try:
         parts = input_str.strip().split(".")
@@ -394,7 +400,7 @@ def _jwt_decode(input_str: str, **_) -> dict:
             return {
                 "success": False,
                 "result": "",
-                "error": "JWT text3text（header.payload.signature）",
+                "error": "JWT must have three parts: header.payload.signature",
             }
 
         # Decode header (base64url)
@@ -414,15 +420,19 @@ def _jwt_decode(input_str: str, **_) -> dict:
         result = json.dumps({"header": header, "payload": payload}, ensure_ascii=False, indent=2)
         return {"success": True, "result": result}
     except Exception as e:
-        return {"success": False, "result": "", "error": f"JWT text: {e}"}
+        return {"success": False, "result": "", "error": f"JWT decode failed: {e}"}
 
 
 @_register(
     "jwt_encode",
     "encode",
-    "JWT text（text header, payload, secret）",
+    "Encode a JWT from a JSON payload",
     ["input"],
-    {"header": "JWT header JSON", "secret": "Signing secret", "algorithm": "text，text HS256"},
+    {
+        "header": "JWT header JSON",
+        "secret": "Signing secret",
+        "algorithm": "Signing algorithm, default HS256",
+    },
 )
 def _jwt_encode(
     input_str: str,
@@ -461,7 +471,7 @@ def _jwt_encode(
 
         return {"success": True, "result": f"{signing_input}.{sig_b64}"}
     except Exception as e:
-        return {"success": False, "result": "", "error": f"JWT text: {e}"}
+        return {"success": False, "result": "", "error": f"JWT encode failed: {e}"}
 
 
 # ── AES Operations ───────────────────────────────────────────────────
@@ -470,9 +480,9 @@ def _jwt_encode(
 @_register(
     "aes_encrypt",
     "encrypt",
-    "AES text（CBC text，PKCS7 text）",
+    "AES-CBC encrypt with PKCS7 padding",
     ["input"],
-    {"key": "text（16/24/32text）", "iv": "text（16text，text）"},
+    {"key": "AES key, 16/24/32 bytes", "iv": "Optional 16-byte initialization vector"},
 )
 def _aes_encrypt(input_str: str, key: str = "", iv: str = "", **_) -> dict:
     try:
@@ -496,15 +506,15 @@ def _aes_encrypt(input_str: str, key: str = "", iv: str = "", **_) -> dict:
             "error": "pycryptodome is required: pip install pycryptodome",
         }
     except Exception as e:
-        return {"success": False, "result": "", "error": f"AES text: {e}"}
+        return {"success": False, "result": "", "error": f"AES encrypt failed: {e}"}
 
 
 @_register(
     "aes_decrypt",
     "decrypt",
-    "AES text（CBC text，PKCS7 text）",
+    "AES-CBC decrypt with PKCS7 padding",
     ["input"],
-    {"key": "text（16/24/32text）", "iv": "text（16text，text）"},
+    {"key": "AES key, 16/24/32 bytes", "iv": "Optional 16-byte initialization vector"},
 )
 def _aes_decrypt(input_str: str, key: str = "", iv: str = "", **_) -> dict:
     try:
@@ -528,13 +538,13 @@ def _aes_decrypt(input_str: str, key: str = "", iv: str = "", **_) -> dict:
             "error": "pycryptodome is required: pip install pycryptodome",
         }
     except Exception as e:
-        return {"success": False, "result": "", "error": f"AES text: {e}"}
+        return {"success": False, "result": "", "error": f"AES decrypt failed: {e}"}
 
 
 # ── Auto-detect decode ───────────────────────────────────────────────
 
 
-@_register("auto_decode", "decode", "text（text）", ["input"])
+@_register("auto_decode", "decode", "Auto-detect and decode common encodings", ["input"])
 def _auto_decode(input_str: str, **_) -> dict:
     """Try to auto-detect the encoding and decode the input."""
     results = []

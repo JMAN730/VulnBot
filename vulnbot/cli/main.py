@@ -2535,7 +2535,7 @@ def web(
     ),
 ) -> None:
     """Run the local Web UI."""
-    if host != "127.0.0.1":
+    if not _is_loopback_bind_host(host):
         if not allow_remote:
             err_console.print(
                 "[!] Refusing to bind the Web UI to a non-local address without --allow-remote."
@@ -2579,6 +2579,19 @@ def web(
     from vulnbot.web.app import create_app
 
     uvicorn.run(create_app(), host=host, port=port, log_level="info")
+
+
+def _is_loopback_bind_host(host: str) -> bool:
+    """Return True when a requested bind host is loopback-only."""
+    normalized = host.strip().strip("[]").lower()
+    if normalized in {"localhost", "127.0.0.1", "::1"}:
+        return True
+    try:
+        import ipaddress
+
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
 
 
 if __name__ == "__main__":

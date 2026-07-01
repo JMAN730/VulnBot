@@ -1,8 +1,13 @@
 .venv/
+.env
+.env.*
 __pycache__/
 *.pyc
 .pytest_cache/
 .test-tmp/
+.npm-cache/
+.vulnbot/
+vulnbot-output/
 dist/
 build/
 *.egg-info/
