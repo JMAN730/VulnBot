@@ -412,6 +412,397 @@ def run_tui(
     run_tui_textual(launcher=launcher, once=once, initial_state=initial_state)
 
 
+# -- Prompt state machine --
+
+PromptCallback = Callable[[str], None]
+
+
+def _set_prompt_input(session: dict[str, Any], label: str, callback: PromptCallback, default: str = "") -> None:
+    session["_prompt"] = ("input", label, callback, default)
+
+
+def _set_prompt_choice(session: dict[str, Any], label: str, choices: list[str], callback: PromptCallback) -> None:
+    session["_prompt"] = ("choice", label, choices, callback)
+
+
+def _set_prompt_confirm(session: dict[str, Any], label: str, callback: Callable[[bool], None]) -> None:
+    session["_prompt"] = ("confirm", label, callback)
+
+
+def _set_prompt_message(session: dict[str, Any], text: str) -> None:
+    session["_prompt"] = ("message", text, None)
+
+
+def _set_prompt_chain(session: dict[str, Any], fields: list, idx: int, callback: Callable[[], None]) -> None:
+    session["_prompt"] = ("chain", fields, idx, callback)
+
+
+def _cancel_prompt(session: dict[str, Any]) -> None:
+    """Cancel current prompt and return to normal mode."""
+    prompt = session.get("_prompt")
+    session["_prompt"] = None
+    if prompt and prompt[0] == "chain":
+        prompt[3]()  # call the final callback
+
+
+def _handle_prompt_response(session: dict[str, Any], prompt: tuple, text: str) -> None:
+    ptype = prompt[0]
+    if ptype == "message":
+        session["_prompt"] = None
+    elif ptype == "input":
+        _label, callback, default = prompt[1], prompt[2], prompt[3]
+        value = text if text else default
+        session["_prompt"] = None
+        callback(value)
+    elif ptype == "choice":
+        _label, choices, callback = prompt[1], prompt[2], prompt[3]
+        if text in choices:
+            session["_prompt"] = None
+            callback(text)
+        else:
+            session["_message"] = _("tui.invalid_choice", choice=text, options=", ".join(choices))
+    elif ptype == "confirm":
+        _label, callback = prompt[1], prompt[2]
+        if text.lower() in ("y", "yes"):
+            session["_prompt"] = None
+            callback(True)
+        elif text.lower() in ("n", "no"):
+            session["_prompt"] = None
+            callback(False)
+        # else: stay in confirm state, let user try again
+    elif ptype == "chain":
+        _fields, idx, cb = prompt[1], prompt[2], prompt[3]
+        if idx >= len(_fields):
+            session["_prompt"] = None
+            cb()
+            return
+        fld, fld_title, fld_default = _fields[idx]
+        if fld == "__allow_actions":
+            session["state"].allow_actions = _parse_action_csv(text) if text else []
+        elif fld == "__block_actions":
+            session["state"].block_actions = _parse_action_csv(text) if text else []
+        elif fld == "only_port":
+            if text:
+                try:
+                    _parse_optional_port(text)
+                    session["state"].only_port = text
+                except ValueError as e:
+                    session["_message"] = str(e)
+                    return
+            else:
+                session["state"].only_port = ""
+        else:
+            setattr(session["state"], fld, text if text else "")
+        _set_prompt_chain(session, _fields, idx + 1, cb)
+
+
+# -- Slash command system --
+
+def _build_slash_commands() -> dict[str, str]:
+    """Build SLASH_COMMANDS dict with translated descriptions."""
+    return {
+        "target": _("tui.slash_target"),
+        "mode": _("tui.slash_mode"),
+        "scope": _("tui.slash_scope"),
+        "run": _("tui.slash_run"),
+        "continue": _("tui.slash_continue"),
+        "history": _("tui.slash_history"),
+        "skills": _("tui.slash_skills"),
+        "report": _("tui.slash_report"),
+        "diag": _("tui.slash_diag"),
+        "config": _("tui.slash_config"),
+        "language": _("tui.slash_lang"),
+        "quit": _("tui.slash_quit"),
+    }
+
+
+SLASH_COMMANDS: dict[str, str] = _build_slash_commands()
+
+
+def _dispatch_slash(text: str, session: dict[str, Any]) -> None:
+    parts = text.lstrip("/").strip().split(maxsplit=1)
+    cmd = parts[0].lower()
+    args = parts[1] if len(parts) > 1 else ""
+    handler = _SLASH_HANDLERS.get(cmd)
+    if handler:
+        handler(session, args)
+    else:
+        session["_message"] = f"Unknown command: /{cmd}"
+
+
+_SLASH_HANDLERS: dict[str, Callable[[dict[str, Any], str], None]] = {}
+
+
+def _register_handler(cmd: str):
+    def deco(fn: Callable[[dict[str, Any], str], None]):
+        _SLASH_HANDLERS[cmd] = fn
+        return fn
+    return deco
+
+
+@_register_handler("quit")
+@_register_handler("exit")
+@_register_handler("q")
+def _cmd_quit(session: dict[str, Any], args: str) -> None:
+    session["_action"] = "quit"
+
+
+@_register_handler("target")
+@_register_handler("t")
+def _cmd_target(session: dict[str, Any], args: str) -> None:
+    state: TuiState = session["state"]
+    if args:
+        state.target = args.strip()
+        return
+
+    def _on_value(value: str) -> None:
+        if value:
+            state.target = value
+
+    _set_prompt_input(session, _("tui.prompt_target"), _on_value, default=state.target)
+
+
+@_register_handler("mode")
+@_register_handler("m")
+def _cmd_mode(session: dict[str, Any], args: str) -> None:
+    state: TuiState = session["state"]
+    if args and args in MODES:
+        state.mode = args
+        return
+    choices = list(MODES.keys())
+
+    def _on_choice(value: str) -> None:
+        state.mode = value
+
+    _set_prompt_choice(session, _("tui.prompt_select_mode"), choices, _on_choice)
+
+
+@_register_handler("scope")
+@_register_handler("s")
+def _cmd_scope(session: dict[str, Any], args: str) -> None:
+    state: TuiState = session["state"]
+    if args:
+        _parse_scope_args(state, args)
+        return
+    fields = [
+        ("only_host", _("tui.prompt_only_host"), state.only_host or ""),
+        ("only_port", _("tui.prompt_only_port"), state.only_port),
+        ("only_path", _("tui.prompt_only_path"), state.only_path or ""),
+        ("blocked_host", _("tui.prompt_blocked_host"), state.blocked_host or ""),
+        ("blocked_path", _("tui.prompt_blocked_path"), state.blocked_path or ""),
+        ("__allow_actions", _("tui.prompt_allowed_actions"), ",".join(state.allow_actions)),
+        ("__block_actions", _("tui.prompt_blocked_actions"), ",".join(state.block_actions)),
+    ]
+
+    def _on_resume_confirm(yes: bool) -> None:
+        state.resume = yes
+
+    def _ask_resume() -> None:
+        _set_prompt_confirm(session, _("tui.prompt_resume", state=_("tui.on") if state.resume else _("tui.off")), _on_resume_confirm)
+
+    _set_prompt_chain(session, fields, 0, _ask_resume)
+
+
+def _parse_scope_args(state: TuiState, args: str) -> None:
+    for pair in args.split():
+        if "=" in pair:
+            k, v = pair.split("=", 1)
+            if k == "host":
+                state.only_host = v
+            elif k == "port":
+                try:
+                    _parse_optional_port(v)
+                    state.only_port = v
+                except ValueError:
+                    pass
+            elif k == "path":
+                state.only_path = v
+            elif k == "blocked_host":
+                state.blocked_host = v
+            elif k == "blocked_path":
+                state.blocked_path = v
+            elif k == "allow":
+                state.allow_actions = _parse_action_csv(v)
+            elif k == "block":
+                state.block_actions = _parse_action_csv(v)
+            elif k == "resume":
+                state.resume = v.lower() in ("true", "yes", "1", "on")
+
+
+@_register_handler("run")
+def _cmd_start(session: dict[str, Any], args: str) -> None:
+    state: TuiState = session["state"]
+    if not state.target.strip():
+        session["_message"] = _("tui.please_set_target")
+        return
+
+    mode = MODES[state.mode]
+    if args == "-f" or args == "--force":
+        _do_launch(session)
+    elif mode.needs_extra_confirm:
+
+        def _on_deep_confirm(yes: bool) -> None:
+            if yes:
+                _do_launch(session)
+        _set_prompt_confirm(session, _("tui.confirm_deep_mode", mode=mode.label), _on_deep_confirm)
+    else:
+        _do_launch(session)
+
+
+def _do_launch(session: dict[str, Any]) -> None:
+    session["_action"] = "launch"
+
+
+@_register_handler("history")
+@_register_handler("hist")
+def _cmd_history(session: dict[str, Any], args: str) -> None:
+    state: TuiState = session["state"]
+    if not state.target.strip():
+        if args:
+            state.target = args.strip()
+        else:
+            session["_message"] = _("tui.please_set_target")
+            return
+
+    preview = get_target_state_preview(state.target)
+    snapshots = list_target_snapshots(state.target)
+    if preview is None:
+        _set_prompt_message(session, _("tui.no_history_for_target"))
+    else:
+        text = (
+            f"Target: {preview.get('target', state.target)} | "
+            f"Phase: {preview.get('phase', '?')} | "
+            f"Findings: {preview.get('findings_count', 0)} | "
+            f"Snapshots: {len(snapshots)}"
+        )
+        _set_prompt_message(session, text)
+
+
+@_register_handler("skills")
+@_register_handler("skill")
+def _cmd_skills(session: dict[str, Any], args: str) -> None:
+    name = args.strip()
+    if not name:
+        session["_view"] = ("skills_list", None)
+        return
+    skill = load_skill_by_name(name)
+    if skill is None:
+        session["_message"] = _("tui.unknown_skill", name=name)
+        return
+    session["_view"] = ("skill_detail", skill)
+
+
+@_register_handler("report")
+def _cmd_report(session: dict[str, Any], args: str) -> None:
+    state: TuiState = session["state"]
+    target = args.strip() if args else state.target.strip()
+    if not target:
+        session["_message"] = _("tui.please_set_target")
+        return
+
+    from vulnbot.cli.main import _generate_report_for_target
+    report_path = _generate_report_for_target(target)
+    _set_prompt_message(session, f"{_('tui.report_generated')}: {report_path}")
+
+
+@_register_handler("diag")
+@_register_handler("diagnostic")
+def _cmd_diagnostic(session: dict[str, Any], args: str) -> None:
+    diag = build_runtime_diagnostic(session["config"])
+    text = (
+        f"Python {diag.python_version} | Node {diag.node_version} | "
+        f"npx {diag.npx_status} | uvx {diag.uvx_status} | "
+        f"Provider: {diag.provider} | Model: {diag.model} | "
+        f"API Key: {'yes' if diag.api_key_configured else 'no'} | "
+        f"MCP: {diag.mcp_total_services}s/{diag.mcp_tool_count}t"
+    )
+    _set_prompt_message(session, text)
+
+
+_SUPPORTED_LANGUAGES = ["auto", "zh", "en"]
+
+
+def _get_language_labels() -> dict[str, str]:
+    """Return {lang_key: translated_label} for supported languages."""
+    return {c: _(f"tui.language_{c}") for c in _SUPPORTED_LANGUAGES}
+
+
+@_register_handler("config")
+@_register_handler("cfg")
+def _cmd_config(session: dict[str, Any], args: str) -> None:
+    config = session["config"]
+    providers = [item["provider"] for item in list_providers()]
+    current_provider = config.llm.provider
+
+    def _on_provider(value: str) -> None:
+        if value and value != current_provider:
+            nonlocal config
+            session["config"] = apply_provider_preset(config, value)
+            config = session["config"]
+        key_status = _("tui.api_key_configured") if config.llm.api_key else _("tui.api_key_not_configured")
+        _set_prompt_input(session, _("tui.prompt_enter_apikey", status=key_status), _on_apikey)
+
+    def _on_apikey(value: str) -> None:
+        if value:
+            config.llm.api_key = value.strip()
+        base_url = config.llm.base_url
+        api_key = config.llm.api_key
+        if not base_url or not api_key:
+            _set_prompt_input(session, _("tui.prompt_enter_model_fallback", model=config.llm.model), _on_model_input, default=config.llm.model)
+            return
+        _set_prompt_message(session, _("tui.fetching_models"))
+        models = fetch_provider_models(base_url, api_key)
+        if models:
+            _set_prompt_choice(session, _("tui.prompt_select_model", model=config.llm.model), models, _on_model_selected)
+        else:
+            _set_prompt_input(session, _("tui.prompt_enter_model_fallback", model=config.llm.model), _on_model_input, default=config.llm.model)
+
+    def _on_model_selected(value: str) -> None:
+        if value:
+            config.llm.model = value.strip()
+        save_config(config)
+        _set_prompt_message(session, f"{_('tui.config_saved')}: {config.llm.provider}/{config.llm.model}")
+
+    def _on_model_input(value: str) -> None:
+        if value:
+            config.llm.model = value.strip()
+        save_config(config)
+        _set_prompt_message(session, f"{_('tui.config_saved')}: {config.llm.provider}/{config.llm.model}")
+
+    _set_prompt_choice(session, _("tui.prompt_select_provider", provider=current_provider), providers, _on_provider)
+
+
+@_register_handler("language")
+@_register_handler("lang")
+def _cmd_language(session: dict[str, Any], args: str) -> None:
+    lang = args.strip().lower() if args else ""
+    if lang in ("auto", "zh", "en"):
+        _apply_language_pt(session, lang)
+    else:
+        choices = list(_SUPPORTED_LANGUAGES)
+        labels = _get_language_labels()
+        choice_labels = [labels[c] for c in choices]
+
+        def _on_choice(value: str) -> None:
+            idx = choice_labels.index(value) if value in choice_labels else 0
+            _apply_language_pt(session, choices[idx])
+
+        _set_prompt_choice(session, _("tui.prompt_select_language"), choice_labels, _on_choice)
+
+
+
+
+def _apply_language_pt(session: dict[str, Any], lang: str) -> None:
+    """Apply language switch for slash-command handlers."""
+    session["config"].session.language = lang
+    save_config(session["config"])
+    init_i18n(lang=lang if lang != "auto" else None, config=session["config"])
+    rebuild_translations()
+
+    lang_labels = _get_language_labels()
+    session["_message"] = _("tui.language_switched", lang=lang_labels.get(lang, lang))
+
+
 
 def render_task_summary(draft: TuiTaskDraft, *, width: int = 100) -> str:
     """Render a launch summary for dry-run output and tests."""

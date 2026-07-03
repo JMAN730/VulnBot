@@ -1464,7 +1464,7 @@ class TestWebApp:
 
         transport = httpx.ASGITransport(app=web_app.create_app())
 
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:7788") as client:
             response = await client.get("/api/health")
 
         assert response.status_code == 200
