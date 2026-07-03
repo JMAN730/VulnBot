@@ -28,6 +28,8 @@ from vulnbot.config.settings import (
     save_config,
 )
 from vulnbot.i18n import _, init_i18n
+from vulnbot.skills.dispatcher import SkillDispatcher
+from vulnbot.skills.loader import load_skill_by_name
 from vulnbot.target_state.store import get_target_state_preview, list_target_snapshots
 
 # -- opencode-inspired colour palette --
@@ -337,6 +339,68 @@ def build_dashboard(config, state: TuiState) -> Group:
     )
 
 
+def build_skills_panel() -> Group:
+    """Build the skills-browser view listing all available skills."""
+    skills = SkillDispatcher().list_all_skills()
+
+    table = Table(box=box.ROUNDED, expand=True, show_header=True, border_style=C_BORDER_SUBTLE)
+    table.add_column(_("tui.skills_col_name"), style=f"bold {C_PRIMARY}", no_wrap=True)
+    table.add_column(_("tui.skills_col_type"), style=C_SECONDARY, no_wrap=True)
+    table.add_column(_("tui.skills_col_desc"), style=C_TEXT)
+    for skill in skills:
+        table.add_row(
+            skill.get("name", ""),
+            skill.get("type", ""),
+            skill.get("description", "") or "—",
+        )
+
+    hint = Text(f"  {_('tui.skills_hint', count=len(skills))}", style=C_MUTED)
+    return Group(
+        Panel(table, title=_("tui.skills_title"), title_align="left", border_style=C_BORDER, box=box.ROUNDED),
+        hint,
+    )
+
+
+def build_skill_detail_panel(skill: dict[str, Any]) -> Group:
+    """Build the detail view for a single skill."""
+    meta = Text()
+    meta.append(f"{_('tui.skills_col_name')}: ", style=f"bold {C_PRIMARY}")
+    meta.append(f"{skill.get('name', '')}\n", style=C_TEXT)
+    meta.append(f"{_('tui.skills_detail_format')}: ", style=f"bold {C_PRIMARY}")
+    meta.append(f"{skill.get('format', '')}\n", style=C_TEXT)
+    meta.append(f"{_('tui.skills_col_desc')}: ", style=f"bold {C_PRIMARY}")
+    meta.append(f"{skill.get('description', '') or '—'}\n", style=C_TEXT)
+
+    references = skill.get("references") or []
+    if references:
+        meta.append(f"{_('tui.skills_detail_refs')}:\n", style=f"bold {C_PRIMARY}")
+        for ref in references:
+            meta.append(f"  · {ref}\n", style=C_MUTED)
+
+    content = (skill.get("content") or "").strip()
+    preview = content[:1500]
+    if len(content) > 1500:
+        preview += "\n…"
+    body = Text(preview or "—", style=C_TEXT)
+
+    hint = Text(f"  {_('tui.skills_detail_hint')}", style=C_MUTED)
+    return Group(
+        Panel(meta, title=_("tui.skills_detail_title"), title_align="left", border_style=C_BORDER, box=box.ROUNDED),
+        Panel(body, title=_("tui.skills_detail_content"), title_align="left", border_style=C_BORDER_SUBTLE, box=box.ROUNDED),
+        hint,
+    )
+
+
+def _render_view(view: tuple, session: dict[str, Any]) -> Group:
+    """Render the active transient view, falling back to the dashboard."""
+    kind = view[0]
+    if kind == "skills_list":
+        return build_skills_panel()
+    if kind == "skill_detail":
+        return build_skill_detail_panel(view[1])
+    return build_dashboard(session["config"], session["state"])
+
+
 def run_tui(
     *,
     launcher: TaskLauncher | None = None,
@@ -363,6 +427,7 @@ def _run_pt_tui(session: dict[str, Any]) -> Optional[str]:
     session["_action"] = None
     session["_prompt"] = None
     session["_message"] = ""
+    session["_view"] = None
 
     def _render_status_bar() -> list[tuple[str, str]]:
         """Only show prompt/message when active; empty otherwise."""
@@ -401,7 +466,12 @@ def _run_pt_tui(session: dict[str, Any]) -> Optional[str]:
         prompt = session.get("_prompt")
         if prompt is not None:
             _handle_prompt_response(session, prompt, text)
-        elif text.startswith("/"):
+            return False
+        # A transient view (e.g. /skills) is dismissed on the next Enter; a
+        # slash command typed over it still runs and may open a new view.
+        if session.get("_view") is not None:
+            session["_view"] = None
+        if text.startswith("/"):
             _dispatch_slash(text, session)
             action = session.get("_action")
             if action in ("quit", "launch"):
@@ -413,7 +483,11 @@ def _run_pt_tui(session: dict[str, Any]) -> Optional[str]:
     def _get_dashboard() -> ANSI:
         buf = io.StringIO()
         console = Console(file=buf, force_terminal=True, width=None, color_system="truecolor")
-        console.print(build_dashboard(session["config"], session["state"]))
+        view = session.get("_view")
+        if view is not None:
+            console.print(_render_view(view, session))
+        else:
+            console.print(build_dashboard(session["config"], session["state"]))
         return ANSI(buf.getvalue().rstrip("\n"))
 
     input_buffer = Buffer(
@@ -507,6 +581,8 @@ def _run_pt_tui(session: dict[str, Any]) -> Optional[str]:
     def _escape(event: Any) -> None:
         if session.get("_prompt") is not None:
             _cancel_prompt(session)
+        elif session.get("_view") is not None:
+            session["_view"] = None
         else:
             session["_action"] = "quit"
             event.app.exit()
@@ -654,6 +730,7 @@ def _build_slash_commands() -> dict[str, str]:
         "run": _("tui.slash_run"),
         "continue": _("tui.slash_continue"),
         "history": _("tui.slash_history"),
+        "skills": _("tui.slash_skills"),
         "report": _("tui.slash_report"),
         "diag": _("tui.slash_diag"),
         "config": _("tui.slash_config"),
@@ -860,6 +937,20 @@ def _cmd_history(session: dict[str, Any], args: str) -> None:
             f"Snapshots: {len(snapshots)}"
         )
         _set_prompt_message(session, text)
+
+
+@_register_handler("skills")
+@_register_handler("skill")
+def _cmd_skills(session: dict[str, Any], args: str) -> None:
+    name = args.strip()
+    if not name:
+        session["_view"] = ("skills_list", None)
+        return
+    skill = load_skill_by_name(name)
+    if skill is None:
+        session["_message"] = _("tui.unknown_skill", name=name)
+        return
+    session["_view"] = ("skill_detail", skill)
 
 
 @_register_handler("report")
