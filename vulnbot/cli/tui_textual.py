@@ -31,10 +31,12 @@ from vulnbot.cli.tui import (
     _effective_block_actions,
     _parse_action_csv,
     _parse_optional_port,
+    _render_view,
     build_dashboard,
     build_runtime_diagnostic,
     rebuild_translations,
 )
+from vulnbot.skills.loader import load_skill_by_name
 from vulnbot.config.settings import (
     apply_provider_preset,
     fetch_provider_models,
@@ -573,6 +575,21 @@ def _h_history(session: dict[str, Any], args: str) -> str | None:
     return None
 
 
+@_register_handler("skills")
+@_register_handler("skill")
+def _h_skills(session: dict[str, Any], args: str) -> str | None:
+    name = args.strip()
+    if not name:
+        session["_view"] = ("skills_list", None)
+        return None
+    skill = load_skill_by_name(name)
+    if skill is None:
+        session["_message"] = _("tui.unknown_skill", name=name)
+        return None
+    session["_view"] = ("skill_detail", skill)
+    return None
+
+
 @_register_handler("report")
 def _h_report(session: dict[str, Any], args: str) -> str | None:
     state = session["state"]
@@ -751,8 +768,12 @@ class DashboardScreen(Screen):
         state = self._s["state"]
         if state.mode is None:
             state.mode = "standard"
-        dash = build_dashboard(self._s["config"], state)
-        self.query_one("#dashboard").update(dash)
+        view = self._s.get("_view")
+        if view is not None:
+            self.query_one("#dashboard").update(_render_view(view, self._s))
+        else:
+            dash = build_dashboard(self._s["config"], state)
+            self.query_one("#dashboard").update(dash)
 
     def _set_bar(self, text: str = "", style: str = "") -> None:
         self._bar_msg_id += 1
@@ -801,6 +822,11 @@ class DashboardScreen(Screen):
         if prompt is not None:
             self._handle_prompt(text)
             return
+
+        # A transient view (e.g. /skills) is dismissed on the next submit; a
+        # slash command below may reopen one.
+        if self._s.get("_view") is not None:
+            self._s["_view"] = None
 
         if text.startswith("/"):
             result = _dispatch(self._s, text)
@@ -871,6 +897,9 @@ class DashboardScreen(Screen):
         elif self._s.get("_prompt") is not None:
             _cancel_prompt(self._s)
             self._set_bar("")
+            self._refresh_dash()
+        elif self._s.get("_view") is not None:
+            self._s["_view"] = None
             self._refresh_dash()
 
     def action_quit_app(self) -> None:
@@ -1365,6 +1394,7 @@ def run_tui_textual(*, launcher=None, once=False, initial_state=None) -> None:
             "_prompt": None,
             "_message": "",
             "_launch": False,
+            "_view": None,
         }
 
         app = VulnBotApp(session)

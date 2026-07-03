@@ -1364,6 +1364,58 @@ class TestCLI:
         assert "3 registered" in output
         assert "5" in output
 
+    def test_tui_skills_command_opens_list_view(self):
+        import vulnbot.cli.tui as tui_mod
+
+        session: dict = {}
+        tui_mod._dispatch_slash("/skills", session)
+
+        assert session["_view"] == ("skills_list", None)
+
+    def test_tui_skills_command_opens_detail_view_for_known_skill(self):
+        import vulnbot.cli.tui as tui_mod
+        from vulnbot.skills.dispatcher import SkillDispatcher
+
+        skills = SkillDispatcher().list_all_skills()
+        assert skills, "expected at least one built-in skill"
+        name = skills[0]["name"]
+
+        session: dict = {}
+        tui_mod._dispatch_slash(f"/skills {name}", session)
+
+        kind, skill = session["_view"]
+        assert kind == "skill_detail"
+        assert skill["name"] == name
+
+    def test_tui_skills_command_reports_unknown_skill(self):
+        import vulnbot.cli.tui as tui_mod
+
+        session: dict = {}
+        tui_mod._dispatch_slash("/skills definitely-not-a-real-skill", session)
+
+        assert session.get("_view") is None
+        assert "definitely-not-a-real-skill" in session["_message"]
+
+    def test_tui_skills_panel_renders_skill_names(self):
+        import vulnbot.cli.tui as tui_mod
+        from vulnbot.skills.dispatcher import SkillDispatcher
+
+        skills = SkillDispatcher().list_all_skills()
+        assert skills, "expected at least one built-in skill"
+
+        rendered = tui_mod.Console(
+            file=io.StringIO(),
+            record=True,
+            width=120,
+            force_terminal=False,
+            color_system=None,
+        )
+        rendered.print(tui_mod.build_skills_panel())
+        output = rendered.export_text()
+
+        assert "Available Skills" in output
+        assert skills[0]["name"] in output
+
     def test_tui_llm_config_prompt_saves_provider_and_api_key(self, monkeypatch):
         import vulnbot.cli.tui as tui_mod
         from vulnbot.config.schema import VulnBotConfig

@@ -656,15 +656,9 @@ async def call_llm_stream(
             # Other error, re-raise
             raise
 
-    # Fallback: non-streaming with simulated streaming
-    # Use existing call_llm as fallback
-    response_fallback, _ = await _call_with_persistent_retries(
-        agent,
-        lambda: client.chat.completions.create(**kwargs),
-        "single-turn",
-    )
-
-    # Fall back to non-streaming call_llm with retry and tool-call handling.
+    # Fall back to non-streaming call_llm, which already performs its own
+    # persistent-retry and tool-call handling. Issuing a separate completion
+    # here would double the API cost for every non-streaming fallback.
     return await call_llm(agent, system_prompt)
 
 
