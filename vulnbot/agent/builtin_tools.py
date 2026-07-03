@@ -24,10 +24,12 @@ from vulnbot.agent.network_scan import (
     nmap_failure_needs_deescalation,
     nmap_has_raw_socket_access,
     parse_nmap_xml_structured,
+    reject_nmap_argv_value,
     summarize_network_scan,
     target_is_private_literal,
     without_privileged_nmap_args,
 )
+from vulnbot.safe_xml import parse_xml_string
 from vulnbot.intel.tools import (
     INTEL_TOOL_NAMES,
     dispatch_intel_tool,
@@ -36,9 +38,12 @@ from vulnbot.intel.tools import (
 
 BLOCKED_PATTERNS: list[str] = [
     r"os\.\s*system\s*\(",
-    r"subprocess\.\s*Popen\s*\(",
+    r"subprocess\.\s*(?:Popen|run|call|check_output|check_call)\s*\(",
     r"shutil\.\s*rmtree\s*\(",
-    r"__import__\s*\(\s*['\"]os['\"]",
+    r"__import__\s*\(",
+    r"\beval\s*\(",
+    r"\bexec\s*\(",
+    r"\bcompile\s*\(",
     r"open\s*\(\s*['\"].*vulnbot.*config",
     r"open\s*\(\s*['\"].*\.vulnbot",
 ]
@@ -526,6 +531,11 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
     if host_violation:
         return host_violation
 
+    for label, value in (("target", target), ("ports", args.get("ports", ""))):
+        violation = reject_nmap_argv_value(str(value or ""), label)
+        if violation:
+            return violation
+
     violation = enforce_port_constraints(agent, infer_ports_from_nmap_args(args), target=target)
     if violation:
         return violation
@@ -617,7 +627,7 @@ async def execute_nmap(agent: Any, args: dict[str, Any]) -> str:
 
         if custom_ports:
             cmd.extend(["-p", custom_ports])
-        cmd.append(target)
+        cmd.extend(["--", target])
 
     try:
         kwargs: dict[str, Any] = {
@@ -676,6 +686,16 @@ def is_reserved_ip(ip: str) -> tuple[bool, str]:
         import ipaddress
 
         addr = ipaddress.ip_address(ip)
+        if isinstance(addr, ipaddress.IPv6Address):
+            if (
+                addr.is_loopback
+                or addr.is_link_local
+                or addr.is_private
+                or addr.is_reserved
+                or addr.is_multicast
+            ):
+                return True, "IPv6 private/reserved address"
+            return False, ""
         for start, end, desc in RESERVED_IP_RANGES:
             if ipaddress.ip_address(start) <= addr <= ipaddress.ip_address(end):
                 return True, desc
@@ -684,23 +704,73 @@ def is_reserved_ip(ip: str) -> tuple[bool, str]:
         return False, ""
 
 
-def validate_scan_target(target: str) -> str:
+def _fetch_scope_allows_host(host: str, scope_target: str, constraints: Any) -> bool:
+    """True when the operator has scoped this host for private/reserved fetches."""
+    host = host.lower().strip()
+    if constraints is not None and not constraints.is_empty():
+        allowed_hosts = getattr(constraints, "allowed_hosts", None) or []
+        if allowed_hosts and host_matches_allowed_scope(host, allowed_hosts):
+            return True
+
+    scope = (scope_target or "").strip()
+    if not scope:
+        return False
+
+    if "://" in scope:
+        scope_host = urlparse(scope).hostname or ""
+    else:
+        scope_host = scope.split("/")[0].split(":")[0]
+    scope_host = scope_host.lower().strip()
+    if scope_host and host == scope_host:
+        return True
+    if target_is_private_literal(host) and target_is_private_literal(scope_host):
+        return host == scope_host
+    return False
+
+
+def validate_fetch_url_ssrf(
+    url: str,
+    *,
+    scope_target: str = "",
+    constraints: Any = None,
+) -> tuple[bool, str]:
+    """Return (is_blocked, reason). SEC-4 SSRF guard for MCP fetch."""
+    text = (url or "").strip()
+    if not text:
+        return False, ""
+
     try:
-        ips = socket.getaddrinfo(target, None, socket.AF_INET)
-        if not ips:
-            return ""
-        ip = ips[0][4][0]
-        is_reserved, reason = is_reserved_ip(ip)
-        if is_reserved:
-            return (
-                f"\n\n[!] **Warning: target {target} resolves to a reserved/private address ({reason})\n"
-                f"   IP: {ip}\n"
-                f"   Scanning this address does not represent the security state of a real external system.\n"
-                f"   Ports in the nmap result may be unrelated to the intended target.**"
-            )
+        parsed = urlparse(text)
     except Exception:
-        pass
-    return ""
+        return True, "invalid URL"
+
+    host = (parsed.hostname or "").lower().strip()
+    if not host:
+        return True, "missing hostname"
+
+    if _fetch_scope_allows_host(host, scope_target, constraints):
+        return False, ""
+
+    ips: list[str] = []
+    try:
+        import ipaddress
+
+        ipaddress.ip_address(host)
+        ips.append(host)
+    except ValueError:
+        try:
+            for family in (socket.AF_INET, socket.AF_INET6):
+                for info in socket.getaddrinfo(host, None, family, socket.SOCK_STREAM):
+                    ips.append(info[4][0])
+        except Exception:
+            ips = []
+
+    for ip in ips:
+        reserved, reason = is_reserved_ip(ip)
+        if reserved:
+            return True, f"{host} resolves to reserved/private address ({reason}, IP: {ip})"
+
+    return False, ""
 
 
 def parse_nmap_xml(xml_output: str, target: str) -> str:
@@ -709,7 +779,7 @@ def parse_nmap_xml(xml_output: str, target: str) -> str:
         return "nmap raw output:\n" + "\n".join(lines)
 
     try:
-        root = ET.fromstring(xml_output)
+        root = parse_xml_string(xml_output)
     except ET.ParseError:
         lines = xml_output.strip().splitlines()[:80]
         return "nmap raw output:\n" + "\n".join(lines)
@@ -762,14 +832,37 @@ def parse_nmap_xml(xml_output: str, target: str) -> str:
 def _resolve_python_execute_mode(agent: Any) -> str:
     safety = getattr(agent.config, "safety", None)
     if safety is None:
-        return "trusted-local"
+        return "safe"
 
     mode = str(getattr(safety, "python_execute_mode", "") or "").strip().lower()
     if not mode and getattr(safety, "python_execute_restricted", False):
         return "safe"
     if mode in {"safe", "lab", "trusted-local"}:
         return mode
-    return "trusted-local"
+    return "safe"
+
+
+def _python_execute_env(mode: str) -> dict[str, str]:
+    """Build the subprocess environment for python_execute.
+
+    SEC-1: never pass credential-bearing env vars to the child, even in
+    trusted-local mode — injected code must not inherit the operator's API key.
+    """
+    base_env = {"PYTHONIOENCODING": "utf-8"}
+    if mode != "trusted-local":
+        return base_env
+
+    deny_substrings = ("KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", "PRIVATE")
+    deny_prefixes = ("VULNBOT_",)
+    env = dict(base_env)
+    for key, value in os.environ.items():
+        upper = key.upper()
+        if any(upper.startswith(prefix) for prefix in deny_prefixes):
+            continue
+        if any(substr in upper for substr in deny_substrings):
+            continue
+        env[key] = value
+    return env
 
 
 def _validate_python_execute_mode(mode: str, code: str) -> str | None:
@@ -905,8 +998,7 @@ async def execute_python(agent: Any, args: dict[str, Any]) -> str:
             f.write(code)
             tmp_path = f.name
 
-        base_env = {"PYTHONIOENCODING": "utf-8"}
-        env = {**os.environ, **base_env} if mode == "trusted-local" else base_env
+        env = _python_execute_env(mode)
 
         proc = await asyncio.create_subprocess_exec(
             sys.executable,

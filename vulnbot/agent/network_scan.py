@@ -18,6 +18,7 @@ from vulnbot.agent.context import (
     StepStatus,
     VulnerabilityFinding,
 )
+from vulnbot.safe_xml import parse_xml_string
 
 NETWORK_SCAN_PROFILES = {"adaptive", "fast", "thorough", "stealth"}
 
@@ -216,6 +217,16 @@ def build_nmap_plan(
     return plan
 
 
+def reject_nmap_argv_value(value: str, label: str) -> str | None:
+    """Reject nmap-flag injection via values that start with '-'."""
+    text = (value or "").strip()
+    if not text:
+        return None
+    if text.startswith("-"):
+        return f"[!] Invalid nmap {label}: values must not start with '-'"
+    return None
+
+
 def build_nmap_command(
     nmap_cmd: str,
     target: str,
@@ -232,7 +243,7 @@ def build_nmap_command(
     cmd = [nmap_cmd, *args, f"-T{plan.timing}", "-oX", "-"]
     if plan.ports:
         cmd.extend(["-p", plan.ports])
-    cmd.append(target)
+    cmd.extend(["--", target])
     return cmd
 
 
@@ -270,7 +281,7 @@ def parse_nmap_xml_structured(xml_output: str, target: str) -> dict[str, Any]:
         }
 
     try:
-        root = ET.fromstring(xml_output)
+        root = parse_xml_string(xml_output)
     except ET.ParseError as exc:
         return {
             "target": target,

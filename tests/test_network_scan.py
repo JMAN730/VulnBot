@@ -34,7 +34,7 @@ def test_network_scan_profile_planning():
     assert command[:2] == ["/usr/bin/nmap", "-v"]
     assert "--script" in command
     assert "default,safe" in command
-    assert command[-1] == "192.168.56.10"
+    assert command[-2:] == ["--", "192.168.56.10"]
 
 
 def test_build_nmap_command_deescalates_without_root(monkeypatch):

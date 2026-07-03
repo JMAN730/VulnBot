@@ -81,6 +81,68 @@ class TestBuiltinPythonExecute:
         )
         assert "ok" in result
 
+    async def test_trusted_local_strips_credential_env_vars(self, monkeypatch):
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        agent = DummyAgent()
+        agent.config.safety.python_execute_mode = "trusted-local"
+        monkeypatch.setattr(builtin_tools, "_write_python_audit", lambda *args, **kwargs: None)
+        monkeypatch.setenv("VULNBOT_API_KEY", "sk-leak")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-leak")
+
+        result = await builtin_tools.execute_python(
+            agent,
+            {
+                "code": (
+                    "import os\n"
+                    "keys = [k for k in os.environ if 'KEY' in k.upper() or k.startswith('VULNBOT_')]\n"
+                    "print('clean' if not keys else keys)"
+                ),
+                "purpose": "demo",
+            },
+        )
+        assert "clean" in result
+
+    async def test_trusted_local_blocks_eval(self, monkeypatch):
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        agent = DummyAgent()
+        agent.config.safety.python_execute_mode = "trusted-local"
+        monkeypatch.setattr(builtin_tools, "_write_python_audit", lambda *args, **kwargs: None)
+
+        result = await builtin_tools.execute_python(
+            agent,
+            {"code": "eval('1+1')", "purpose": "demo"},
+        )
+        assert "blocked operation pattern" in result
+
+    async def test_trusted_local_blocks_subprocess_run(self, monkeypatch):
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        agent = DummyAgent()
+        agent.config.safety.python_execute_mode = "trusted-local"
+        monkeypatch.setattr(builtin_tools, "_write_python_audit", lambda *args, **kwargs: None)
+
+        result = await builtin_tools.execute_python(
+            agent,
+            {"code": "import subprocess\nsubprocess.run(['echo','x'])", "purpose": "demo"},
+        )
+        assert "blocked operation pattern" in result
+
+    async def test_disabled_by_default(self, monkeypatch):
+        import vulnbot.agent.builtin_tools as builtin_tools
+        from vulnbot.config.schema import VulnBotConfig
+
+        agent = DummyAgent()
+        agent.config = VulnBotConfig()
+        monkeypatch.setattr(builtin_tools, "_write_python_audit", lambda *args, **kwargs: None)
+
+        result = await builtin_tools.execute_python(
+            agent,
+            {"code": "print('should not run')", "purpose": "demo"},
+        )
+        assert "disabled" in result.lower()
+
     async def test_audit_writer_emits_jsonl(self, monkeypatch, tmp_path):
         import vulnbot.agent.builtin_tools as builtin_tools
 
@@ -106,6 +168,53 @@ class TestBuiltinPythonExecute:
         assert record["mode"] == "safe"
         assert record["outcome"] == "blocked"
         assert record["blocked_reason"] == "requests"
+
+
+class TestFetchUrlSsrfGuard:
+    def test_blocks_cloud_metadata_without_scope(self):
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        blocked, reason = builtin_tools.validate_fetch_url_ssrf(
+            "http://169.254.169.254/latest/meta-data/"
+        )
+        assert blocked is True
+        assert "169.254.169.254" in reason
+
+    def test_blocks_private_ip_without_scope(self):
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        blocked, reason = builtin_tools.validate_fetch_url_ssrf("http://192.168.1.10/")
+        assert blocked is True
+        assert "192.168.1.10" in reason
+
+    def test_allows_private_ip_when_scope_target_matches(self):
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        blocked, reason = builtin_tools.validate_fetch_url_ssrf(
+            "http://192.168.1.10/",
+            scope_target="192.168.1.10",
+        )
+        assert blocked is False
+        assert reason == ""
+
+    def test_allows_private_ip_when_allowed_hosts_include_it(self):
+        import vulnbot.agent.builtin_tools as builtin_tools
+        from vulnbot.agent.context import TaskConstraints
+
+        constraints = TaskConstraints(allowed_hosts=["192.168.1.10"], strict_mode=True)
+        blocked, reason = builtin_tools.validate_fetch_url_ssrf(
+            "http://192.168.1.10/",
+            constraints=constraints,
+        )
+        assert blocked is False
+        assert reason == ""
+
+    def test_blocks_ipv6_loopback_without_scope(self):
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        blocked, reason = builtin_tools.validate_fetch_url_ssrf("http://[::1]/")
+        assert blocked is True
+        assert "::1" in reason or "IPv6" in reason
 
 
 class TestBuiltinMcpExecution:
@@ -194,6 +303,16 @@ class TestBuiltinMcpExecution:
         )
         assert "constraint_violation" in result
         assert "Host example.com" in result
+
+    async def test_execute_nmap_rejects_flag_injection_target(self):
+        import vulnbot.agent.builtin_tools as builtin_tools
+
+        agent = DummyAgent()
+        result = await builtin_tools.execute_nmap(
+            agent,
+            {"target": "-oN/tmp/evil", "ports": "80", "scan_type": "tcp"},
+        )
+        assert "must not start with '-'" in result
 
     async def test_execute_nmap_blocks_out_of_scope_port(self):
         import vulnbot.agent.builtin_tools as builtin_tools

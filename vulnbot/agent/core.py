@@ -12,18 +12,10 @@ from vulnbot.agent.anti_loop import (
     track_failed_target,
 )
 from vulnbot.agent.builtin_tools import (
-    BLOCKED_PATTERNS,
-    RESERVED_IP_RANGES,
     build_openai_tools,
     execute_mcp_tool,
-    execute_nmap,
-    execute_python,
-    is_reserved_ip,
-    parse_nmap_xml,
-    validate_scan_target,
 )
 from vulnbot.agent.context import ContextManager, PentestPhase, SessionState, TaskConstraints
-from vulnbot.agent.ctf_mode import detect_flag_claim
 from vulnbot.agent.finding_parser import FindingParser
 from vulnbot.agent.input_analysis import (
     detect_phase,
@@ -43,6 +35,7 @@ from vulnbot.agent.skill_context import get_active_skill_context
 from vulnbot.agent.system_prompt import build_dynamic_system_prompt
 from vulnbot.agent.tool_call_manager import safe_parse_tool_args
 from vulnbot.config.schema import VulnBotConfig
+from vulnbot.config.settings import uses_verified_provider_transport
 from vulnbot.target_state.store import save_target_state
 
 # Optional KB integration; gracefully degrade if KB data is unavailable.
@@ -163,7 +156,10 @@ class AgentCore:
         self.runtime.user_vuln_hint_rounds = 3 if self.runtime.user_vuln_hint else 0
         self.context.state.task_constraints = self.runtime.task_constraints
         if self.mcp_manager and hasattr(self.mcp_manager, "set_task_constraints"):
-            self.mcp_manager.set_task_constraints(self.context.state.task_constraints)
+            self.mcp_manager.set_task_constraints(
+                self.context.state.task_constraints,
+                scope_target=self.context.state.target or "",
+            )
 
         if preserve_recon:
             self.runtime.is_recon_phase = False
@@ -213,12 +209,18 @@ class AgentCore:
     def _get_client(self):
         """Lazy-initialize OpenAI client."""
         if self._client is None:
+            base_url = self.config.llm.base_url.strip()
+            if not uses_verified_provider_transport(base_url):
+                raise RuntimeError(
+                    "Refusing to send the LLM API key to a non-HTTPS provider base URL. "
+                    "Use HTTPS, or a loopback HTTP URL for local model servers."
+                )
             try:
                 from openai import OpenAI
 
                 self._client = OpenAI(
                     api_key=self._current_api_key(),
-                    base_url=self.config.llm.base_url,
+                    base_url=base_url,
                 )
             except ImportError:
                 raise RuntimeError("Please install the openai package: pip install openai")
@@ -339,6 +341,12 @@ class AgentCore:
             self.context.state.target = detected_target
             result.target = detected_target
 
+        if self.mcp_manager and hasattr(self.mcp_manager, "set_task_constraints"):
+            self.mcp_manager.set_task_constraints(
+                self.context.state.task_constraints,
+                scope_target=self.context.state.target or "",
+            )
+
         if detected_phase:
             self.context.state.advance_phase(detected_phase)
             result.phase = detected_phase.value
@@ -430,14 +438,6 @@ class AgentCore:
         """Check if the LLM output signals task completion."""
         return is_completion_signal(output)
 
-    def _detect_flag_claim(self, output: str) -> Optional[str]:
-        """Detect if the LLM claims to have found a flag, return the claimed flag or None.
-
-        This is used to trigger automatic verification; if the LLM claims
-        a flag but we can't verify it independently, we should NOT stop.
-        """
-        return detect_flag_claim(output)
-
     def _track_failed_target(self, response_text: str) -> Optional[str]:
         """Track target-level failures and detect repeatedly failed targets.
 
@@ -484,29 +484,6 @@ class AgentCore:
     def _build_openai_tools(self) -> list[dict]:
         """Build OpenAI function calling schema from MCP tools + built-in tools."""
         return build_openai_tools(self.mcp_manager)
-
-    # -- Python code executor -----------------------------------------
-
-    _BLOCKED_PATTERNS = BLOCKED_PATTERNS
-
-    async def _execute_nmap(self, args: dict) -> str:
-        return await execute_nmap(self, args)
-
-    # -- Reserved IP detection helpers ---------------------------------
-
-    _RESERVED_IP_RANGES = RESERVED_IP_RANGES
-
-    def _is_reserved_ip(self, ip: str) -> tuple[bool, str]:
-        return is_reserved_ip(ip)
-
-    def _validate_scan_target(self, target: str) -> str:
-        return validate_scan_target(target)
-
-    def _parse_nmap_xml(self, xml_output: str, target: str) -> str:
-        return parse_nmap_xml(xml_output, target)
-
-    async def _execute_python(self, args: dict) -> str:
-        return await execute_python(self, args)
 
     def _update_recon_dimension_completion(self, response: str) -> None:
         """Auto-detect which recon dimensions have been explored."""

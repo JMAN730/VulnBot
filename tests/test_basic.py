@@ -40,7 +40,6 @@ def test_no_import_errors():
         "vulnbot.agent.prompts",
         "vulnbot.agent.core",
         "vulnbot.mcp.registry",
-        "vulnbot.mcp.router",
         "vulnbot.mcp.lifecycle",
         "vulnbot.skills.loader",
         "vulnbot.skills.dispatcher",

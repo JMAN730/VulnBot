@@ -406,12 +406,14 @@ COMMANDS: tuple[ManualTopic, ...] = (
             ("--dry-run", "Validate imports and print launch information without starting uvicorn."),
             (
                 "--allow-remote",
-                "Required when --host is not 127.0.0.1. This prevents accidentally exposing the Web UI.",
+                "Required when --host is not 127.0.0.1. Also requires VULNBOT_WEB_AUTH_TOKEN.",
             ),
         ),
         notes=(
             "Install the web extra if FastAPI/uvicorn are missing: pip install 'vulnbot[web]'.",
             "Keep the Web UI on localhost unless you intentionally need remote access.",
+            "Mutating /api routes require the session auth cookie or Authorization: Bearer <token>.",
+            "Set VULNBOT_WEB_AUTH_TOKEN before using --allow-remote.",
         ),
         examples=("vulnbot web", "vulnbot web --port 8080 --dry-run"),
     ),
