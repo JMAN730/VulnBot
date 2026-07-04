@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import ipaddress
 import os
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 from pydantic import ValidationError
@@ -30,6 +32,38 @@ KB_DIR = CONFIG_DIR / "kb"
 SKILLS_DIR = CONFIG_DIR / "skills"
 WEB_TASKS_FILE = CONFIG_DIR / "web_tasks.json"
 PYTHON_EXECUTE_AUDIT_FILE = CONFIG_DIR / "python_execute_audit.jsonl"
+
+
+def _is_loopback_hostname(hostname: str | None) -> bool:
+    """Return True for localhost or loopback IP literals."""
+    if not hostname:
+        return False
+
+    normalized = hostname.rstrip(".").lower()
+    if normalized == "localhost":
+        return True
+
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def uses_verified_provider_transport(base_url: str) -> bool:
+    """Return True when a provider URL is safe for credentialed requests.
+
+    SEC-5: provider calls carry the saved LLM API key, so remote endpoints must
+    use TLS with the HTTP client's default certificate verification. Plain HTTP
+    is allowed only for loopback model servers such as local Ollama-compatible
+    gateways.
+    """
+    parsed = urlparse((base_url or "").strip())
+    scheme = parsed.scheme.lower()
+    if scheme == "https":
+        return bool(parsed.netloc)
+    if scheme == "http" and parsed.netloc:
+        return _is_loopback_hostname(parsed.hostname)
+    return False
 
 
 def ensure_dirs() -> None:
@@ -327,7 +361,8 @@ def fetch_provider_models(base_url: str, api_key: str, timeout: float = 10.0) ->
     Returns a sorted list of model ID strings.  Returns an empty list
     on any error (network, auth, timeout, etc.).
     """
-    if not base_url or not api_key:
+    base_url = (base_url or "").strip()
+    if not base_url or not api_key or not uses_verified_provider_transport(base_url):
         return []
     try:
         from openai import OpenAI

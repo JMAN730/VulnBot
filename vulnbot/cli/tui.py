@@ -412,229 +412,6 @@ def run_tui(
     run_tui_textual(launcher=launcher, once=once, initial_state=initial_state)
 
 
-def _run_pt_tui(session: dict[str, Any]) -> Optional[str]:
-    """Run one cycle of the prompt_toolkit dashboard.
-
-    Returns 'quit', 'launch', or None (interrupted).
-    """
-    from prompt_toolkit import Application
-    from prompt_toolkit.buffer import Buffer
-    from prompt_toolkit.formatted_text import ANSI
-    from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
-    from prompt_toolkit.layout import Float, FloatContainer, HSplit, Layout, Window
-    from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
-    from prompt_toolkit.styles import Style
-    session["_action"] = None
-    session["_prompt"] = None
-    session["_message"] = ""
-    session["_view"] = None
-
-    def _render_status_bar() -> list[tuple[str, str]]:
-        """Only show prompt/message when active; empty otherwise."""
-        prompt = session.get("_prompt")
-        msg = session.get("_message", "")
-
-        if prompt is not None:
-            ptype = prompt[0]
-            if ptype == "input":
-                return [(f"fg:{C_MUTED}", f"  {prompt[1]} ")]
-            elif ptype == "choice":
-                return [(f"fg:{C_MUTED}", f"  {prompt[1]} [")
-                        ] + [(f"fg:{C_PRIMARY} bold", f"{c}") for c in prompt[2]
-                        ] + [(f"fg:{C_MUTED}", "] ")]
-            elif ptype == "confirm":
-                return [(f"fg:{C_MUTED}", f"  {prompt[1]} "),
-                        (f"fg:{C_SUCCESS} bold", "y"), (f"fg:{C_MUTED}", "/"),
-                        (f"fg:{C_ERROR} bold", "n"), (f"fg:{C_MUTED}", " ")]
-            elif ptype == "message":
-                return [(f"fg:{C_MUTED}", f"  {prompt[1]}  "),
-                        (f"fg:{C_BORDER}", "[Enter]")]
-            elif ptype == "chain":
-                _, fields, idx, _cb = prompt
-                if idx < len(fields):
-                    return [(f"fg:{C_MUTED}", f"  [{idx+1}/{len(fields)}] {fields[idx][1]} ")]
-        elif msg:
-            return [(f"fg:{C_WARNING}", f"  {msg}")]
-
-        return []
-
-    def _handle_input(buff: Buffer) -> bool:
-        text = buff.text.strip()
-        buff.text = ""
-        session["_message"] = ""
-
-        prompt = session.get("_prompt")
-        if prompt is not None:
-            _handle_prompt_response(session, prompt, text)
-            return False
-        # A transient view (e.g. /skills) is dismissed on the next Enter; a
-        # slash command typed over it still runs and may open a new view.
-        if session.get("_view") is not None:
-            session["_view"] = None
-        if text.startswith("/"):
-            _dispatch_slash(text, session)
-            action = session.get("_action")
-            if action in ("quit", "launch"):
-                app.exit()
-        elif text:
-            session["_message"] = _("tui.slash_hint")
-        return False
-
-    def _get_dashboard() -> ANSI:
-        buf = io.StringIO()
-        console = Console(file=buf, force_terminal=True, width=None, color_system="truecolor")
-        view = session.get("_view")
-        if view is not None:
-            console.print(_render_view(view, session))
-        else:
-            console.print(build_dashboard(session["config"], session["state"]))
-        return ANSI(buf.getvalue().rstrip("\n"))
-
-    input_buffer = Buffer(
-        accept_handler=_handle_input,
-        multiline=False,
-        enable_history_search=False,
-        completer=_build_slash_completer(),
-        complete_while_typing=True,
-    )
-
-    session["_palette_idx"] = 0
-
-    def _palette_visible() -> bool:
-        text = input_buffer.text
-        if not text.startswith("/"):
-            return False
-        word = text.lstrip("/")
-        if " " in word:
-            return False
-        return True
-
-    def _palette_filtered() -> list[tuple[str, str]]:
-        word = input_buffer.text.lstrip("/")
-        return [(cmd, desc) for cmd, desc in SLASH_COMMANDS.items()
-                if cmd.startswith(word)]
-
-    def _palette_content() -> list[tuple[str, str]]:
-        items = _palette_filtered()
-        if not items:
-            return []
-        sel = session["_palette_idx"] % len(items)
-        # Calculate dynamic box width: prefix (3) + cmd padded to 12 (12) + space (1) + max desc length
-        max_desc = max((len(desc) for _, desc in items), default=32)
-        box_inner = max(46, max_desc + 16)  # 46 is legacy minimum, 16 = prefix + cmd column + space
-        result: list[tuple[str, str]] = []
-        result.append((f"fg:{C_BORDER} bg:#1e1e1e", "+" + "-" * box_inner + "+\n"))
-        for i, (cmd, desc) in enumerate(items):
-            prefix = "▸" if i == sel else " "
-            if i == sel:
-                result.append((f"fg:{C_PRIMARY} bold bg:#2a2a2a", f" {prefix} /{cmd:<12}"))
-                result.append((f"fg:{C_MUTED} bg:#2a2a2a", f" {desc}\n"))
-            else:
-                result.append((f"fg:{C_PRIMARY} bold bg:#1e1e1e", f" {prefix} /{cmd:<12}"))
-                result.append((f"fg:{C_MUTED} bg:#1e1e1e", f" {desc}\n"))
-        result.append((f"fg:{C_BORDER} bg:#1e1e1e", "+" + "-" * box_inner + "+"))
-        return result
-
-    def _select_palette(_buff: Buffer | None = None) -> None:
-        if not _palette_visible():
-            return
-        items = _palette_filtered()
-        if items:
-            sel = session["_palette_idx"] % len(items)
-            input_buffer.text = "/" + items[sel][0]
-            input_buffer.cursor_position = len(input_buffer.text)
-
-    body = HSplit([
-        Window(content=FormattedTextControl(_get_dashboard), wrap_lines=False),
-        Window(height=1, char="-", style=f"fg:{C_BORDER}"),
-        Window(content=FormattedTextControl(_render_status_bar), height=1, style="class:status-bar", dont_extend_height=True),
-        Window(content=BufferControl(buffer=input_buffer), height=1, style="class:input"),
-    ])
-
-    palette_window = Window(
-        content=FormattedTextControl(_palette_content),
-        dont_extend_width=True,
-        dont_extend_height=True,
-    )
-
-    root = FloatContainer(
-        content=body,
-        floats=[
-            Float(
-                content=palette_window,
-                left=0,
-                bottom=2,
-                z_index=100,
-            ),
-        ],
-    )
-
-    kb = KeyBindings()
-
-    @kb.add("c-c")
-    @kb.add("c-d")
-    def _exit(event: Any) -> None:
-        session["_action"] = "quit"
-        event.app.exit()
-
-    @kb.add("escape")
-    def _escape(event: Any) -> None:
-        if session.get("_prompt") is not None:
-            _cancel_prompt(session)
-        elif session.get("_view") is not None:
-            session["_view"] = None
-        else:
-            session["_action"] = "quit"
-            event.app.exit()
-
-    @kb.add("up")
-    def _palette_up(event: Any) -> None:
-        if _palette_visible():
-            session["_palette_idx"] = max(0, session["_palette_idx"] - 1)
-
-    @kb.add("down")
-    def _palette_down(event: Any) -> None:
-        if _palette_visible():
-            session["_palette_idx"] = max(0, session["_palette_idx"] + 1)
-
-    @kb.add("tab")
-    def _palette_tab(event: Any) -> None:
-        if _palette_visible():
-            _select_palette()
-
-    style = Style.from_dict({
-        "divider": f"fg:{C_BORDER}",
-        "status-bar": f"bg:{C_BORDER_SUBTLE}",
-        "input": f"bg:#1e1e1e fg:{C_TEXT}",
-    })
-
-    app = Application(
-        layout=Layout(root),
-        key_bindings=merge_key_bindings([kb, _load_default_bindings()]),
-        style=style,
-        full_screen=True,
-        mouse_support=True,
-    )
-
-    try:
-        app.run()
-    except (KeyboardInterrupt, EOFError):
-        session["_action"] = "quit"
-
-    return session.get("_action")
-
-
-_DEFAULT_BINDINGS: Any = None
-
-
-def _load_default_bindings() -> Any:
-    global _DEFAULT_BINDINGS
-    if _DEFAULT_BINDINGS is None:
-        from prompt_toolkit.key_binding.defaults import load_key_bindings as _load
-        _DEFAULT_BINDINGS = _load()
-    return _DEFAULT_BINDINGS
-
-
 # -- Prompt state machine --
 
 PromptCallback = Callable[[str], None]
@@ -740,44 +517,6 @@ def _build_slash_commands() -> dict[str, str]:
 
 
 SLASH_COMMANDS: dict[str, str] = _build_slash_commands()
-
-
-def _build_slash_completer() -> Any:
-    from prompt_toolkit.completion import Completer, Completion
-
-    class _SlashCompleter(Completer):
-        def get_completions(self, document, complete_event):
-            pass  # async path is used instead
-
-        async def get_completions_async(self, document, _complete_event):
-            text = document.text_before_cursor
-            if not text.startswith("/"):
-                return
-
-            word = text.lstrip("/")
-
-            if not word:
-                for cmd, desc in SLASH_COMMANDS.items():
-                    yield Completion(
-                        cmd,
-                        start_position=0,
-                        display=[(f"fg:{C_PRIMARY} bold", f"/{cmd}"), ("", "  "), (f"fg:{C_MUTED}", desc)],
-                    )
-                return
-
-            parts = word.split(maxsplit=1)
-            typed_cmd = parts[0]
-
-            if len(parts) == 1 and not text.endswith(" "):
-                for cmd, desc in SLASH_COMMANDS.items():
-                    if cmd.startswith(typed_cmd):
-                        yield Completion(
-                            cmd,
-                            start_position=-len(typed_cmd),
-                            display=[(f"fg:{C_PRIMARY} bold", f"/{cmd}"), ("", "  "), (f"fg:{C_MUTED}", desc)],
-                        )
-
-    return _SlashCompleter()
 
 
 def _dispatch_slash(text: str, session: dict[str, Any]) -> None:
@@ -1051,8 +790,10 @@ def _cmd_language(session: dict[str, Any], args: str) -> None:
         _set_prompt_choice(session, _("tui.prompt_select_language"), choice_labels, _on_choice)
 
 
+
+
 def _apply_language_pt(session: dict[str, Any], lang: str) -> None:
-    """Apply language switch (prompt_toolkit backend)."""
+    """Apply language switch for slash-command handlers."""
     session["config"].session.language = lang
     save_config(session["config"])
     init_i18n(lang=lang if lang != "auto" else None, config=session["config"])
@@ -1061,8 +802,6 @@ def _apply_language_pt(session: dict[str, Any], lang: str) -> None:
     lang_labels = _get_language_labels()
     session["_message"] = _("tui.language_switched", lang=lang_labels.get(lang, lang))
 
-
-# -- (kept for backward compatibility) --
 
 
 def render_task_summary(draft: TuiTaskDraft, *, width: int = 100) -> str:

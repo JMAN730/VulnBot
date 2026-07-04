@@ -2546,6 +2546,13 @@ def web(
         )
 
     from vulnbot.web.app import FASTAPI_AVAILABLE
+    from vulnbot.web.security import require_remote_web_auth_token
+
+    try:
+        auth_token = require_remote_web_auth_token(allow_remote)
+    except RuntimeError as exc:
+        err_console.print(f"[!] {exc}")
+        raise typer.Exit(1) from exc
 
     console.print(
         Panel(
@@ -2578,7 +2585,28 @@ def web(
 
     from vulnbot.web.app import create_app
 
-    uvicorn.run(create_app(), host=host, port=port, log_level="info")
+    if allow_remote:
+        console.print(
+            "[yellow]Warning: remote Web UI access is enabled. "
+            "Protect it with VULNBOT_WEB_AUTH_TOKEN and a trusted network.[/]"
+        )
+    elif not os.environ.get("VULNBOT_WEB_AUTH_TOKEN", "").strip():
+        console.print(
+            "[dim]Web UI auth token was generated for this session "
+            "(mutating API calls require the HttpOnly cookie or Bearer token).[/]"
+        )
+
+    uvicorn.run(
+        create_app(
+            bind_host=host,
+            port=port,
+            allow_remote=allow_remote,
+            auth_token=auth_token,
+        ),
+        host=host,
+        port=port,
+        log_level="info",
+    )
 
 
 def _is_loopback_bind_host(host: str) -> bool:

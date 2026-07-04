@@ -9,7 +9,7 @@ from contextlib import suppress
 from typing import Any
 from urllib.parse import urlparse
 
-from vulnbot.agent.builtin_tools import infer_port_from_url
+from vulnbot.agent.builtin_tools import infer_port_from_url, validate_fetch_url_ssrf
 from vulnbot.agent.constraint_policy import host_matches_allowed_scope
 from vulnbot.config.schema import MCPServerConfig, VulnBotConfig
 from vulnbot.mcp.registry import HealthStatus, MCPRegistry
@@ -48,6 +48,7 @@ class MCPLifecycleManager:
         self._mcp_clients: dict[str, Any] = {}  # Server attach capability cache
         self._loop: asyncio.AbstractEventLoop | None = None
         self._task_constraints: Any = None
+        self._scope_target: str = ""
 
     async def __aenter__(self) -> MCPLifecycleManager:
         self.start_enabled_servers()
@@ -56,9 +57,31 @@ class MCPLifecycleManager:
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         await self.astop_all()
 
-    def set_task_constraints(self, constraints: Any) -> None:
+    def set_task_constraints(self, constraints: Any, scope_target: str = "") -> None:
         """Attach current task constraints for tool-level enforcement."""
         self._task_constraints = constraints
+        self._scope_target = (scope_target or "").strip()
+
+    def _check_fetch_ssrf(self, url: str) -> dict[str, Any] | None:
+        blocked, reason = validate_fetch_url_ssrf(
+            url,
+            scope_target=self._scope_target,
+            constraints=self._task_constraints,
+        )
+        if not blocked:
+            return None
+        return self._tool_result(
+            ok=False,
+            server="fetch",
+            tool="fetch",
+            execution_mode="local",
+            error_type="ssrf_blocked",
+            message=f"Fetch blocked: {reason} for url {url}",
+            suggestion=(
+                "Adjust task scope to include this host, or target a public URL "
+                "instead of a reserved/private address."
+            ),
+        )
 
     def _check_fetch_constraints(self, arguments: dict[str, Any]) -> dict[str, Any] | None:
         constraints = self._task_constraints
@@ -626,6 +649,14 @@ class MCPLifecycleManager:
                             },
                             "headers": {"type": "object", "description": "HTTP headers"},
                             "body": {"type": "string", "description": "Request body"},
+                            "verify_tls": {
+                                "type": "boolean",
+                                "description": (
+                                    "Verify TLS certificates. Defaults to true; set false "
+                                    "only for authorized targets with self-signed certificates."
+                                ),
+                                "default": True,
+                            },
                         },
                         "required": ["url"],
                     },
@@ -870,6 +901,10 @@ class MCPLifecycleManager:
     ) -> Any:
         try:
             if server_name == "fetch" and tool_name == "fetch":
+                violation = self._check_fetch_ssrf(str(arguments.get("url", "") or ""))
+                if violation is not None:
+                    self.registry.record_tool_call(server_name, success=False)
+                    return violation
                 violation = self._check_fetch_constraints(arguments)
                 if violation is not None:
                     self.registry.record_tool_call(server_name, success=False)
@@ -993,8 +1028,15 @@ class MCPLifecycleManager:
             method = args.get("method", "GET").upper()
             headers = args.get("headers", {})
             body = args.get("body")
+            verify_arg = args.get("verify_tls", True)
+            if isinstance(verify_arg, str):
+                verify_tls = verify_arg.strip().lower() not in {"0", "false", "no", "off"}
+            elif verify_arg is None:
+                verify_tls = True
+            else:
+                verify_tls = bool(verify_arg)
 
-            async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+            async with httpx.AsyncClient(verify=verify_tls, timeout=30.0) as client:
                 response = await client.request(
                     method=method,
                     url=url,

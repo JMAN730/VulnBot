@@ -173,15 +173,18 @@ class SafetyConfig(BaseModel):
     """Safety / sandbox configuration."""
 
     enable_python_execute: bool = Field(
-        default=True,
-        description="Enable the python_execute built-in tool (disable for safer runs)",
+        default=False,
+        description=(
+            "Enable the python_execute built-in tool (off by default). "
+            "When enabled, the agent can run local Python with full host access in trusted-local mode."
+        ),
     )
     python_execute_restricted: bool = Field(
         default=False,
         description="Restricted mode: block file I/O and network in python_execute",
     )
     python_execute_mode: str = Field(
-        default="trusted-local",
+        default="safe",
         description="Execution mode for python_execute: safe, lab, trusted-local",
     )
     python_execute_max_lines: int = Field(

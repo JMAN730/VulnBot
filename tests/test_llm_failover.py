@@ -148,3 +148,9 @@ class TestAgentCoreRotation:
         assert agent.rotate_api_key() is True
         assert agent._client is None
         assert agent._current_api_key() == "k2"
+
+    def test_get_client_rejects_remote_http_base_url(self):
+        agent = self._agent(api_key="sk-test", base_url="http://api.example.com/v1")
+
+        with pytest.raises(RuntimeError, match="HTTPS"):
+            agent._get_client()

@@ -73,7 +73,7 @@ class TestWebServices:
         assert view.output_dir == str(tmp_path)
         assert view.max_rounds == 22
         assert view.show_thinking is True
-        assert view.python_execute_mode == "trusted-local"
+        assert view.python_execute_mode == "safe"
 
     def test_web_config_service_sets_api_key(self, monkeypatch):
         import vulnbot.web.services.config_service as config_service
@@ -167,7 +167,7 @@ class TestWebServices:
         assert resp.models == []
         assert "key" in resp.detail.lower()
 
-    def test_web_provider_service_fetch_models_honors_request_base_url(self, monkeypatch):
+    def test_web_provider_service_fetch_models_honors_known_preset_base_url(self, monkeypatch):
         import vulnbot.web.services.provider_service as provider_service
         from vulnbot.config.schema import VulnBotConfig
         from vulnbot.web.schemas import ProviderModelsRequest
@@ -185,11 +185,132 @@ class TestWebServices:
 
         monkeypatch.setattr(provider_service, "fetch_provider_models", fake_fetch)
 
+        # A base_url matching a known provider preset is allowed even though
+        # it differs from the currently saved config base_url.
         resp = provider_service.fetch_models(
-            ProviderModelsRequest(base_url="https://override.example/v1")
+            ProviderModelsRequest(base_url="https://api.openai.com/v1")
         )
-        assert captured["base_url"] == "https://override.example/v1"
-        assert resp.base_url == "https://override.example/v1"
+        assert captured["base_url"] == "https://api.openai.com/v1"
+        assert resp.base_url == "https://api.openai.com/v1"
+
+    def test_web_provider_service_fetch_models_honors_saved_config_base_url(self, monkeypatch):
+        import vulnbot.web.services.provider_service as provider_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ProviderModelsRequest
+
+        saved_url = "https://my-custom-proxy.example/v1"
+        config = VulnBotConfig()
+        config.llm.api_key = "sk-test"
+        config.llm.base_url = saved_url
+        monkeypatch.setattr(provider_service, "load_config", lambda: config)
+
+        captured = {}
+
+        def fake_fetch(base_url, api_key, timeout=10.0):
+            captured["base_url"] = base_url
+            return ["custom-model"]
+
+        monkeypatch.setattr(provider_service, "fetch_provider_models", fake_fetch)
+
+        resp = provider_service.fetch_models(
+            ProviderModelsRequest(base_url=saved_url)
+        )
+        assert captured["base_url"] == saved_url
+        assert resp.models == ["custom-model"]
+
+    def test_web_provider_service_fetch_models_rejects_remote_http_base_url(self, monkeypatch):
+        import vulnbot.web.services.provider_service as provider_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ProviderModelsRequest
+
+        config = VulnBotConfig()
+        config.llm.api_key = "sk-test"
+        config.llm.base_url = "http://api.example.com/v1"
+        monkeypatch.setattr(provider_service, "load_config", lambda: config)
+
+        def must_not_call(*args, **kwargs):
+            raise AssertionError("fetch_provider_models must not run for remote HTTP")
+
+        monkeypatch.setattr(provider_service, "fetch_provider_models", must_not_call)
+
+        resp = provider_service.fetch_models(ProviderModelsRequest())
+        assert resp.models == []
+        assert resp.has_api_key is True
+        assert "https" in resp.detail.lower()
+
+    def test_web_provider_service_fetch_models_allows_loopback_http_base_url(self, monkeypatch):
+        import vulnbot.web.services.provider_service as provider_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ProviderModelsRequest
+
+        saved_url = "http://127.0.0.1:11434/v1"
+        config = VulnBotConfig()
+        config.llm.api_key = "local-key"
+        config.llm.base_url = saved_url
+        monkeypatch.setattr(provider_service, "load_config", lambda: config)
+
+        captured = {}
+
+        def fake_fetch(base_url, api_key, timeout=10.0):
+            captured["base_url"] = base_url
+            captured["api_key"] = api_key
+            return ["local-model"]
+
+        monkeypatch.setattr(provider_service, "fetch_provider_models", fake_fetch)
+
+        resp = provider_service.fetch_models(ProviderModelsRequest())
+        assert captured == {"base_url": saved_url, "api_key": "local-key"}
+        assert resp.models == ["local-model"]
+
+    def test_web_provider_service_fetch_models_rejects_unallowed_base_url(self, monkeypatch):
+        # SEC-2: an arbitrary, unsaved base_url must never receive the saved
+        # API key -- otherwise a CSRF'd request from any origin the operator
+        # visits can exfiltrate the key to an attacker-chosen host.
+        import vulnbot.web.services.provider_service as provider_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ProviderModelsRequest
+
+        config = VulnBotConfig()
+        config.llm.api_key = "sk-test"
+        config.llm.base_url = "https://config-default.example/v1"
+        monkeypatch.setattr(provider_service, "load_config", lambda: config)
+
+        def must_not_call(*args, **kwargs):
+            raise AssertionError("fetch_provider_models must not run for an unallowed base_url")
+
+        monkeypatch.setattr(provider_service, "fetch_provider_models", must_not_call)
+
+        resp = provider_service.fetch_models(
+            ProviderModelsRequest(base_url="https://attacker.example/v1")
+        )
+        assert resp.models == []
+        assert resp.has_api_key is True
+        assert "save" in resp.detail.lower()
+
+    def test_web_provider_service_fetch_models_rejects_empty_saved_base_url(self, monkeypatch):
+        # An unsaved "custom" provider preset seeds base_url to "" -- make sure
+        # that never accidentally matches an empty/unresolved request base_url
+        # (PROVIDER_PRESETS[CUSTOM]["base_url"] == "" must not create a
+        # universal allow-list wildcard for empty strings).
+        import vulnbot.web.services.provider_service as provider_service
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.web.schemas import ProviderModelsRequest
+
+        assert provider_service._is_allowed_base_url("", "") is False
+        assert provider_service._is_allowed_base_url("", "https://saved.example/v1") is False
+
+        config = VulnBotConfig()
+        config.llm.api_key = "sk-test"
+        config.llm.base_url = ""
+        monkeypatch.setattr(provider_service, "load_config", lambda: config)
+
+        def must_not_call(*args, **kwargs):
+            raise AssertionError("fetch_provider_models must not run for an empty base_url")
+
+        monkeypatch.setattr(provider_service, "fetch_provider_models", must_not_call)
+
+        resp = provider_service.fetch_models(ProviderModelsRequest())
+        assert resp.models == []
 
     def test_web_target_service_lists_targets(self, monkeypatch, tmp_path):
         import vulnbot.target_state.store as store_mod
@@ -856,6 +977,45 @@ class TestWebServices:
 
 
 class TestWebApp:
+    @pytest.mark.asyncio
+    async def test_web_auth_blocks_mutations_without_token(self):
+        import httpx
+
+        import vulnbot.web.app as web_app
+
+        if not web_app.FASTAPI_AVAILABLE:
+            pytest.skip("FastAPI is not installed in this environment")
+
+        transport = httpx.ASGITransport(app=web_app.create_app(auth_token="secret-token"))
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1") as client:
+            response = await client.post("/api/config", json={"model": "gpt-4o"})
+            assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_web_auth_allows_mutations_with_bearer_token(self, monkeypatch):
+        import httpx
+
+        import vulnbot.web.app as web_app
+        import vulnbot.web.services.config_service as config_service
+        from vulnbot.config.schema import VulnBotConfig
+
+        if not web_app.FASTAPI_AVAILABLE:
+            pytest.skip("FastAPI is not installed in this environment")
+
+        saved = VulnBotConfig()
+        monkeypatch.setattr(config_service, "load_config", lambda: saved)
+        monkeypatch.setattr(config_service, "save_config", lambda cfg: None)
+
+        transport = httpx.ASGITransport(app=web_app.create_app(auth_token="secret-token"))
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1",
+            headers={"Authorization": "Bearer secret-token"},
+        ) as client:
+            response = await client.post("/api/config", json={"model": "gpt-4o-mini"})
+            assert response.status_code == 200
+            assert response.json()["model"] == "gpt-4o-mini"
+
     def test_constraint_audit_route_works_without_fastapi(self, monkeypatch):
         import vulnbot.web.app as web_app
 
@@ -1225,13 +1385,23 @@ class TestWebApp:
         assert result.exit_code == 1
         assert "allow-remote" in result.output
 
-    def test_cli_web_allows_remote_host_with_explicit_flag(self):
+    def test_cli_web_allows_remote_host_with_explicit_flag(self, monkeypatch):
         from vulnbot.cli.main import app
 
+        monkeypatch.setenv("VULNBOT_WEB_AUTH_TOKEN", "test-remote-token")
         runner = CliRunner()
         result = runner.invoke(app, ["web", "--host", "0.0.0.0", "--allow-remote", "--dry-run"])
         assert result.exit_code == 0
         assert "0.0.0.0" in result.output
+
+    def test_cli_web_rejects_remote_without_auth_token(self, monkeypatch):
+        from vulnbot.cli.main import app
+
+        monkeypatch.delenv("VULNBOT_WEB_AUTH_TOKEN", raising=False)
+        runner = CliRunner()
+        result = runner.invoke(app, ["web", "--host", "0.0.0.0", "--allow-remote", "--dry-run"])
+        assert result.exit_code == 1
+        assert "VULNBOT_WEB_AUTH_TOKEN" in result.output
 
     @pytest.mark.asyncio
     async def test_web_target_preview_and_diff_endpoints(self, monkeypatch):
@@ -1266,9 +1436,13 @@ class TestWebApp:
             )(),
         )
 
-        transport = httpx.ASGITransport(app=web_app.create_app())
+        transport = httpx.ASGITransport(app=web_app.create_app(auth_token="test-token"))
 
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1",
+            headers={"Authorization": "Bearer test-token"},
+        ) as client:
             preview = await client.get("/api/target-preview/example.com")
             assert preview.status_code == 200
             assert preview.json()["schema_version"] == 2
@@ -1290,7 +1464,7 @@ class TestWebApp:
 
         transport = httpx.ASGITransport(app=web_app.create_app())
 
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:7788") as client:
             response = await client.get("/api/health")
 
         assert response.status_code == 200

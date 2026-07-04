@@ -12,6 +12,8 @@ import json
 import re
 import time
 import xml.etree.ElementTree as ET
+
+from vulnbot.safe_xml import parse_xml_string
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -289,7 +291,7 @@ def parse_nmap_xml(
     """Parse nmap XML (-oX) output; falls back to text parsing on malformed XML."""
     topo = _new_scanner_topology(scanner_label)
     try:
-        root = ET.fromstring(xml_content)
+        root = parse_xml_string(xml_content)
     except ET.ParseError:
         return parse_nmap_text(xml_content, scanner_label=scanner_label)
 

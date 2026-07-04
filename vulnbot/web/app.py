@@ -95,15 +95,31 @@ def _resolve_contained_file(root: Path, relative_path: str) -> Path | None:
     return None
 
 
-def create_app():
+def create_app(
+    *,
+    bind_host: str = "127.0.0.1",
+    port: int = 7788,
+    allow_remote: bool = False,
+    auth_token: str | None = None,
+):
     """Create the Web UI backend app."""
     if not FASTAPI_AVAILABLE:
         raise RuntimeError(
             "FastAPI is not installed. Install the web extra first: pip install vulnbot[web]"
         )
 
+    from vulnbot.web.security import install_web_security_middleware, resolve_web_auth_token
+
+    token = resolve_web_auth_token(auth_token)
     app = FastAPI(title="VulnBot Web UI", version="0.3.1")
     app.add_middleware(SecurityHeadersMiddleware)
+    install_web_security_middleware(
+        app,
+        auth_token=token,
+        bind_host=bind_host,
+        port=port,
+        allow_remote=allow_remote,
+    )
 
     @app.get("/api/health")
     async def health():

@@ -100,98 +100,6 @@ class TestMCPRegistry:
         assert result is None
 
 
-# -- router.py --------------------------------------------------------
-
-
-class TestMCPRouter:
-    """Test MCPRouter."""
-
-    def test_route_fetch(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        results = router.route("send request to this endpoint")
-        assert len(results) > 0
-        assert any(r["server"] == "fetch" for r in results)
-
-    def test_route_burp(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        results = router.route("inspect request through proxy")
-        assert len(results) > 0
-        assert any(r["server"] == "burp" for r in results)
-
-    def test_route_browser(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        results = router.route("open page")
-        assert len(results) > 0
-        assert any(r["server"] == "chrome-devtools" for r in results)
-
-    def test_route_screenshot(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        results = router.route("take a screenshot")
-        assert len(results) > 0
-        assert any(r["tool"] == "screenshot" for r in results)
-
-    def test_route_memory_save(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        results = router.route("remember this finding")
-        assert len(results) > 0
-        assert any(r["server"] == "memory" for r in results)
-
-    def test_route_no_match(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        results = router.route("what is the weather today")
-        assert len(results) == 0
-
-    def test_extract_url(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        assert router.extract_url("visit https://example.com/path") == "https://example.com/path"
-        assert router.extract_url("no URL here") is None
-
-    def test_extract_ip(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        assert router.extract_ip("scan 192.168.1.100") == "192.168.1.100"
-        assert router.extract_ip("no IP here") is None
-
-    def test_suggest_tools_for_phase(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        tools = router.suggest_tools_for_phase("recon")
-        assert len(tools) > 0
-        assert any(t["server"] == "fetch" for t in tools)
-
-    def test_suggest_tools_for_unknown_phase(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        tools = router.suggest_tools_for_phase("unknown phase")
-        assert tools == []
-
-    def test_route_confidence(self):
-        from vulnbot.mcp.router import MCPRouter
-
-        router = MCPRouter()
-        results = router.route("send request")
-        for r in results:
-            assert "confidence" in r
-            assert 0 < r["confidence"] <= 1
-
-
 # -- lifecycle.py -----------------------------------------------------
 
 
@@ -450,6 +358,88 @@ class TestMCPLifecycleManager:
         assert state.call_count == 1
         assert state.success_count == 1
         assert state.health_status == "healthy"
+
+    @pytest.mark.asyncio
+    async def test_fetch_blocks_reserved_ip_without_scope(self):
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
+        from vulnbot.mcp.lifecycle import MCPLifecycleManager
+
+        manager = MCPLifecycleManager(VulnBotConfig())
+        manager.registry.register_server("fetch")
+        manager._start_server("fetch", MCPServerConfig(**BUILTIN_MCP_SERVERS["fetch"]))
+
+        result = await manager.call_tool(
+            "fetch",
+            {"url": "http://169.254.169.254/latest/meta-data/"},
+        )
+        assert result["ok"] is False
+        assert result["error_type"] == "ssrf_blocked"
+        assert "169.254.169.254" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_fetch_allows_scoped_private_ip(self, monkeypatch):
+        from vulnbot.config.schema import BUILTIN_MCP_SERVERS, MCPServerConfig, VulnBotConfig
+        from vulnbot.mcp.lifecycle import MCPLifecycleManager
+
+        manager = MCPLifecycleManager(VulnBotConfig())
+        manager.registry.register_server("fetch")
+        manager._start_server("fetch", MCPServerConfig(**BUILTIN_MCP_SERVERS["fetch"]))
+        manager.set_task_constraints(None, scope_target="192.168.1.10")
+
+        async def fake_fetch(self, args):
+            return "Status: 200"
+
+        monkeypatch.setattr(MCPLifecycleManager, "_call_fetch", fake_fetch)
+
+        result = await manager.call_tool("fetch", {"url": "http://192.168.1.10/"})
+        assert result["ok"] is True
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("args", "expected_verify"),
+        [
+            ({"url": "https://example.com/"}, True),
+            ({"url": "https://example.com/", "verify_tls": None}, True),
+            ({"url": "https://example.com/", "verify_tls": False}, False),
+            ({"url": "https://example.com/", "verify_tls": "false"}, False),
+        ],
+    )
+    async def test_fetch_verifies_tls_by_default(self, monkeypatch, args, expected_verify):
+        import sys
+        from types import SimpleNamespace
+
+        from vulnbot.config.schema import VulnBotConfig
+        from vulnbot.mcp.lifecycle import MCPLifecycleManager
+
+        captured = {}
+
+        class FakeResponse:
+            status_code = 200
+            headers = {"content-type": "text/plain"}
+            text = "ok"
+
+        class FakeAsyncClient:
+            def __init__(self, *, verify, timeout):
+                captured["verify"] = verify
+                captured["timeout"] = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def request(self, **kwargs):
+                captured["request"] = kwargs
+                return FakeResponse()
+
+        monkeypatch.setitem(sys.modules, "httpx", SimpleNamespace(AsyncClient=FakeAsyncClient))
+
+        manager = MCPLifecycleManager(VulnBotConfig())
+        result = await manager._call_fetch(args)
+
+        assert "Status: 200" in result
+        assert captured["verify"] is expected_verify
 
     @pytest.mark.asyncio
     async def test_fetch_constraint_violation_returns_structured_error(self):

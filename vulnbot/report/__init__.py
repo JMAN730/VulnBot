@@ -13,7 +13,6 @@ from vulnbot.report.verifier import (
     VerificationStatus,
     VerifiedFinding,
     VerifierExecutor,
-    VulnerabilityVerifier,
 )
 
 __all__ = [
@@ -22,7 +21,6 @@ __all__ = [
     "generate_report_from_file",
     "generate_persistent_cycle_report",
     # Verifier
-    "VulnerabilityVerifier",
     "VerifiedFinding",
     "VerificationStatus",
     "VerificationResult",
